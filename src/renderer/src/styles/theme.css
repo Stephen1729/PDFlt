@@ -1,0 +1,49 @@
+:root {
+  /* ── Background ── */
+  --bg-primary: #111111;
+  --bg-secondary: #1a1a1a;
+  --bg-card: #222222;
+  --bg-card-hover: #2a2a2a;
+  --bg-input: #0a0a0a;
+
+  /* ── Text ── */
+  --text-primary: #f3f3f3;
+  --text-secondary: #b3b3b3;
+  --text-muted: #737373;
+
+  /* ── Accent ── */
+  --accent: #2b70c9;
+  --accent-hover: #3d8bf0;
+  --accent-soft: rgba(43, 112, 201, 0.12);
+  --accent-glow: rgba(43, 112, 201, 0.25);
+
+  /* ── Status ── */
+  --success: #4ade80;
+  --success-soft: rgba(74, 222, 128, 0.12);
+  --warning: #fbbf24;
+  --warning-soft: rgba(251, 191, 36, 0.12);
+  --error: #f87171;
+  --error-soft: rgba(248, 113, 113, 0.12);
+
+  /* ── Borders ── */
+  --border: #2a2a2a;
+  --border-light: #3d3d3d;
+
+  /* ── Geometry ── */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+
+  /* ── Shadows ── */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.25);
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.45);
+
+  /* ── Motion ── */
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration: 200ms;
+  --duration-slow: 350ms;
+}
+

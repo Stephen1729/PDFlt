@@ -1,0 +1,28 @@
+appId: com.pdftoolkit.app
+productName: PDFToolkit
+directories:
+  buildResources: resources
+  output: dist
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!electron.vite.config.*'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+win:
+  executableName: PDFToolkit
+  target:
+    - nsis
+nsis:
+  artifactName: PDFToolkit-Setup-${version}.${ext}
+  shortcutName: PDFToolkit
+  uninstallDisplayName: PDFToolkit
+  createDesktopShortcut: always
+mac:
+  target:
+    - dmg
+  artifactName: PDFToolkit-${version}.${ext}
+linux:
+  target:
+    - AppImage
+  artifactName: PDFToolkit-${version}.${ext}
+

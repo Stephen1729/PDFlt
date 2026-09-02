@@ -1,0 +1,26 @@
+{
+  "name": "pdf-toolkit",
+  "version": "1.0.0",
+  "description": "Herramienta local para manipular PDFs — 100% offline",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "postinstall": "electron-builder install-app-deps",
+    "package": "electron-vite build && electron-builder --win",
+    "package:mac": "electron-vite build && electron-builder --mac"
+  },
+  "dependencies": {
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^4.9.155",
+    "sortablejs": "^1.15.6"
+  },
+  "devDependencies": {
+    "@types/sortablejs": "^1.15.8",
+    "electron": "^35.0.0",
+    "electron-builder": "^26.0.0",
+    "electron-vite": "^5.0.0",
+    "typescript": "^5.6.0"
+  }
+}
+

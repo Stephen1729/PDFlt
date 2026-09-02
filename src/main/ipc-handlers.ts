@@ -1,0 +1,229 @@
+import { ipcMain, dialog, BrowserWindow } from 'electron'
+import { readFile, stat } from 'fs/promises'
+import { basename } from 'path'
+import { IPC_CHANNELS, PdfFileInfo, OperationResult } from '../shared/types'
+import { validatePdf } from './pdf/validator'
+import { reorderPdfPages } from './pdf/reorder'
+import { mergePdfs } from './pdf/merge'
+import { extractPages } from './pdf/extract'
+
+export function registerIpcHandlers(): void {
+  // ── Open file dialog → validate PDF → return info ──
+  ipcMain.handle(IPC_CHANNELS.OPEN_PDF, async (): Promise<PdfFileInfo | null> => {
+    const window = BrowserWindow.getFocusedWindow()
+    if (!window) return null
+
+    const result = await dialog.showOpenDialog(window, {
+      title: 'Seleccionar PDF',
+      filters: [{ name: 'Archivos PDF', extensions: ['pdf'] }],
+      properties: ['openFile']
+    })
+
+    if (result.canceled || result.filePaths.length === 0) return null
+
+    const filePath = result.filePaths[0]
+    const validation = await validatePdf(filePath)
+
+    if (!validation.valid) {
+      dialog.showErrorBox('PDF inválido', validation.error || 'No se pudo leer el archivo.')
+      return null
+    }
+
+    const fileStats = await stat(filePath)
+
+    return {
+      filePath,
+      fileName: basename(filePath),
+      pageCount: validation.pageCount!,
+      fileSizeBytes: fileStats.size,
+      isEncrypted: validation.isEncrypted || false
+    }
+  })
+
+  // ── Read PDF file as ArrayBuffer for renderer thumbnail rendering ──
+  ipcMain.handle(IPC_CHANNELS.READ_PDF, async (_event, filePath: string): Promise<ArrayBuffer> => {
+    const buffer = await readFile(filePath)
+    // Convert Node.js Buffer to ArrayBuffer for IPC transfer
+    return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
+  })
+
+  // ── Reorder pages → ask save location → process → verify ──
+  ipcMain.handle(
+    IPC_CHANNELS.REORDER_PAGES,
+    async (_event, filePath: string, newOrder: number[], toTemp?: boolean): Promise<OperationResult> => {
+      if (toTemp) {
+        const tempPath = join(app.getPath('temp'), `reordenado_${Date.now()}.pdf`)
+        return reorderPdfPages(filePath, newOrder, tempPath)
+      }
+
+      const window = BrowserWindow.getFocusedWindow()
+      if (!window) return { success: false, error: 'No hay ventana activa' }
+
+      // Ask where to save
+      const saveResult = await dialog.showSaveDialog(window, {
+        title: 'Guardar PDF reordenado',
+        defaultPath: filePath.replace(/\.pdf$/i, '_reordenado.pdf'),
+        filters: [{ name: 'Archivos PDF', extensions: ['pdf'] }]
+      })
+
+      if (saveResult.canceled || !saveResult.filePath) {
+        return { success: false, error: 'Operación cancelada' }
+      }
+
+      return reorderPdfPages(filePath, newOrder, saveResult.filePath)
+    }
+  )
+
+  // ── Generic save file dialog ──
+  ipcMain.handle(
+    IPC_CHANNELS.SAVE_DIALOG,
+    async (_event, defaultName: string): Promise<string | null> => {
+      const window = BrowserWindow.getFocusedWindow()
+      if (!window) return null
+
+      const result = await dialog.showSaveDialog(window, {
+        title: 'Guardar archivo',
+        defaultPath: defaultName,
+        filters: [{ name: 'Archivos PDF', extensions: ['pdf'] }]
+      })
+
+      return result.canceled ? null : result.filePath || null
+    }
+  )
+
+  // ── Open multiple PDF files ──
+  ipcMain.handle(IPC_CHANNELS.OPEN_MULTIPLE_PDFS, async (): Promise<PdfFileInfo[] | null> => {
+    const window = BrowserWindow.getFocusedWindow()
+    if (!window) return null
+
+    const result = await dialog.showOpenDialog(window, {
+      title: 'Seleccionar PDFs',
+      filters: [{ name: 'Archivos PDF', extensions: ['pdf'] }],
+      properties: ['openFile', 'multiSelections']
+    })
+
+    if (result.canceled || result.filePaths.length === 0) return null
+
+    const filesInfo: PdfFileInfo[] = []
+    
+    for (const filePath of result.filePaths) {
+      const validation = await validatePdf(filePath)
+
+      if (!validation.valid) {
+        dialog.showErrorBox('PDF inválido', `El archivo ${basename(filePath)} no se pudo leer.`)
+        continue
+      }
+
+      const fileStats = await stat(filePath)
+      filesInfo.push({
+        filePath,
+        fileName: basename(filePath),
+        pageCount: validation.pageCount!,
+        fileSizeBytes: fileStats.size,
+        isEncrypted: validation.isEncrypted || false
+      })
+    }
+
+    return filesInfo.length > 0 ? filesInfo : null
+  })
+
+  // ── Process Dropped Files ──
+  ipcMain.handle(
+    IPC_CHANNELS.PROCESS_DROPPED_FILES,
+    async (_event, filePaths: string[]): Promise<PdfFileInfo[]> => {
+      const filesInfo: PdfFileInfo[] = []
+      
+      for (const filePath of filePaths) {
+        const validation = await validatePdf(filePath)
+
+        if (!validation.valid) {
+          dialog.showErrorBox('PDF inválido', `El archivo ${basename(filePath)} no se pudo leer.`)
+          continue
+        }
+
+        const fileStats = await stat(filePath)
+        filesInfo.push({
+          filePath,
+          fileName: basename(filePath),
+          pageCount: validation.pageCount!,
+          fileSizeBytes: fileStats.size,
+          isEncrypted: validation.isEncrypted || false
+        })
+      }
+
+      return filesInfo
+    }
+  )
+
+  // ── Get Single File Info ──
+  ipcMain.handle(
+    IPC_CHANNELS.GET_FILE_INFO,
+    async (_event, filePath: string): Promise<PdfFileInfo | null> => {
+      const validation = await validatePdf(filePath)
+      if (!validation.valid) return null
+
+      const fileStats = await stat(filePath)
+      return {
+        filePath,
+        fileName: basename(filePath),
+        pageCount: validation.pageCount!,
+        fileSizeBytes: fileStats.size,
+        isEncrypted: validation.isEncrypted || false
+      }
+    }
+  )
+
+  // ── Merge PDFs ──
+  ipcMain.handle(
+    IPC_CHANNELS.MERGE_PDFS,
+    async (_event, filePaths: string[], toTemp?: boolean): Promise<OperationResult> => {
+      if (toTemp) {
+        const tempPath = join(app.getPath('temp'), `unido_${Date.now()}.pdf`)
+        return mergePdfs(filePaths, tempPath)
+      }
+
+      const window = BrowserWindow.getFocusedWindow()
+      if (!window) return { success: false, error: 'No hay ventana activa' }
+
+      const saveResult = await dialog.showSaveDialog(window, {
+        title: 'Guardar PDF unido',
+        defaultPath: 'unido.pdf',
+        filters: [{ name: 'Archivos PDF', extensions: ['pdf'] }]
+      })
+
+      if (saveResult.canceled || !saveResult.filePath) {
+        return { success: false, error: 'Operación cancelada' }
+      }
+
+      return mergePdfs(filePaths, saveResult.filePath)
+    }
+  )
+
+  // ── Extract Pages ──
+  ipcMain.handle(
+    IPC_CHANNELS.EXTRACT_PAGES,
+    async (_event, filePath: string, selectedIndices: number[], toTemp?: boolean): Promise<OperationResult> => {
+      const sortedIndices = [...selectedIndices].sort((a, b) => a - b)
+      
+      if (toTemp) {
+        const tempPath = join(app.getPath('temp'), `extraido_${Date.now()}.pdf`)
+        return extractPages(filePath, sortedIndices, tempPath)
+      }
+
+      const window = BrowserWindow.getFocusedWindow()
+      if (!window) return { success: false, error: 'No hay ventana activa' }
+
+      const saveResult = await dialog.showSaveDialog(window, {
+        title: 'Guardar PDF extraído',
+        defaultPath: filePath.replace(/\.pdf$/i, '_extraido.pdf'),
+        filters: [{ name: 'Archivos PDF', extensions: ['pdf'] }]
+      })
+
+      if (saveResult.canceled || !saveResult.filePath) {
+        return { success: false, error: 'Operación cancelada' }
+      }
+
+      return extractPages(filePath, sortedIndices, saveResult.filePath)
+    }
+  )
+}
