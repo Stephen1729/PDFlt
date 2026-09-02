@@ -26,7 +26,7 @@ export function navigateTo(view: ViewName, payload?: any): void {
       renderMerge(container)
       break
     case 'split':
-      renderSplit(container)
+      renderSplit(container, payload)
       break
     case 'compress':
       renderComingSoon(container, view)
@@ -43,10 +43,11 @@ function renderComingSoon(container: HTMLElement, view: string): void {
 
   container.innerHTML = `
     <div class="view-header">
-      <button id="back-btn" class="btn-icon" title="Volver">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M19 12H5M12 19l-7-7 7-7"/>
+      <button class="btn-icon" id="back-btn" title="Volver">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+             fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="19" y1="12" x2="5" y2="12"/>
+          <polyline points="12 19 5 12 12 5"/>
         </svg>
       </button>
       <h2>${labels[view] || view}</h2>
@@ -59,8 +60,8 @@ function renderComingSoon(container: HTMLElement, view: string): void {
     </div>
   `
 
-  document.getElementById('back-btn')!.addEventListener('click', () => navigateTo('home'))
-  document.getElementById('back-home-btn')!.addEventListener('click', () => navigateTo('home'))
+  document.getElementById('back-btn')!.addEventListener('click', () => navigateTo('reorder'))
+  document.getElementById('back-home-btn')!.addEventListener('click', () => navigateTo('reorder'))
 }
 
 /**

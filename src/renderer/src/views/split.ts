@@ -1,5 +1,5 @@
 import * as pdfjsLib from 'pdfjs-dist'
-import { showNotification } from '../router'
+import { showNotification, navigateTo } from '../router'
 import type { PdfFileInfo } from '../../../shared/types'
 
 // Configure pdf.js worker
@@ -13,7 +13,7 @@ let currentFilePath: string | null = null
 let totalPageCount = 0
 let selectedPages: Set<number> = new Set()
 
-export function renderSplit(container: HTMLElement): void {
+export function renderSplit(container: HTMLElement, payload?: any): void {
   // Reset state
   currentFilePath = null
   totalPageCount = 0
