@@ -46,19 +46,19 @@ export function renderCompress(container: HTMLElement, payload?: any): void {
       <div class="compression-levels" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
         
         <div class="compression-card" data-level="extreme">
-          <div class="card-icon">⚡</div>
+          <div class="card-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
           <h3>Fuerte</h3>
           <p>Mínimo tamaño. Menor resolución (100 DPI). Ideal para enviar por correo o límites web.</p>
         </div>
 
         <div class="compression-card selected" data-level="recommended">
-          <div class="card-icon">⭐</div>
+          <div class="card-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></div>
           <h3>Equilibrada</h3>
           <p>Mejor relación calidad/tamaño (150 DPI). Ideal para fotos, escaneos y lectura en pantalla.</p>
         </div>
 
         <div class="compression-card" data-level="basic">
-          <div class="card-icon">✨</div>
+          <div class="card-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/><line x1="16" y1="8" x2="2" y2="22"/><line x1="17.5" y1="15" x2="9" y2="15"/></svg></div>
           <h3>Ligera</h3>
           <p>Sin pérdida. Mantiene vectores y texto seleccionable. Limpia metadatos y estructura.</p>
         </div>
@@ -78,31 +78,29 @@ export function renderCompress(container: HTMLElement, payload?: any): void {
       <!-- Result Section -->
       <div id="result-container" style="display: none; text-align: center; margin-bottom: 2rem; padding: 1.5rem; background: var(--bg-secondary); border-radius: 12px; border: 1px solid var(--border);">
         <h3 style="margin-bottom: 1rem; color: var(--success);">¡Compresión Completada!</h3>
-        <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; font-size: 1.2rem;">
-          <span id="result-old-size" style="color: var(--text-muted); text-decoration: line-through;"></span>
-          <span>➔</span>
-          <span id="result-new-size" style="font-weight: bold; color: var(--text);"></span>
-          <span id="result-savings" style="color: var(--success); font-weight: 600; padding: 4px 8px; background: rgba(74, 222, 128, 0.1); border-radius: 16px; font-size: 0.9rem;"></span>
+        <div style="display: flex; justify-content: center; gap: 2rem; margin-bottom: 1rem; font-size: 0.9rem;">
+          <div>Original: <span id="result-old-size" style="font-weight: bold;"></span></div>
+          <div>Comprimido: <span id="result-new-size" style="font-weight: bold;"></span></div>
+          <div style="color: var(--success);">Ahorro: <span id="result-savings" style="font-weight: bold; padding: 2px 6px; border-radius: 4px;"></span></div>
         </div>
       </div>
 
-      <!-- Action Bar -->
-      <div class="action-bar" style="justify-content: center; flex-wrap: wrap;">
-        <button id="compress-btn" class="btn-primary">
+      <div class="action-buttons">
+        <button id="compress-btn" class="btn-primary" disabled>
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="4 14 10 14 10 20"></polyline>
-            <polyline points="20 10 14 10 14 4"></polyline>
-            <line x1="14" y1="10" x2="21" y2="3"></line>
-            <line x1="3" y1="21" x2="10" y2="14"></line>
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            <polyline points="3.29 7 12 12 20.71 7"></polyline>
+            <line x1="12" y1="22" x2="12" y2="12"></line>
           </svg>
           Comprimir PDF
         </button>
-        <button id="save-btn" class="btn-primary" style="display: none;">Descargar PDF (Guardar)</button>
-        <div class="chain-actions" id="chain-actions" style="display: none;">
+        <button id="save-btn" class="btn-primary" style="display: none;">Guardar Como...</button>
+        
+        <div id="chain-actions" class="chain-actions" style="display: none;">
           <span style="color:var(--text-muted); font-size: 0.85rem">o continuar en:</span>
-          <button id="to-reorder" class="btn-secondary" title="Reordenar">➡️ Reordenar</button>
-          <button id="to-merge" class="btn-secondary" title="Unir">➡️ Unir</button>
-          <button id="to-split" class="btn-secondary" title="Separar">➡️ Separar</button>
+          <button id="to-reorder" class="btn-secondary" title="Reordenar">Reordenar</button>
+          <button id="to-merge" class="btn-secondary" title="Unir">Unir</button>
+          <button id="to-split" class="btn-secondary" title="Separar">Separar</button>
         </div>
       </div>
 

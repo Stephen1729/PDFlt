@@ -59,9 +59,9 @@ export function renderSplit(container: HTMLElement, payload?: any): void {
         </button>
         <div class="chain-actions">
           <span style="color:var(--text-muted); font-size: 0.85rem">o continuar en:</span>
-          <button id="split-to-merge" class="btn-secondary" title="Unir" disabled>➡️ Unir</button>
-          <button id="split-to-reorder" class="btn-secondary" title="Reordenar" disabled>➡️ Reordenar</button>
-          <button id="split-to-compress" class="btn-secondary" title="Comprimir" disabled>➡️ Comprimir</button>
+          <button id="split-to-merge" class="btn-secondary" title="Unir" disabled>Unir</button>
+          <button id="split-to-reorder" class="btn-secondary" title="Reordenar" disabled>Reordenar</button>
+          <button id="split-to-compress" class="btn-secondary" title="Comprimir" disabled>Comprimir</button>
         </div>
       </div>
     </div>
@@ -164,7 +164,7 @@ async function renderThumbnails(filePath: string, pageCount: number): Promise<vo
 
     for (let i = 0; i < pageCount; i++) {
       const page = await pdf.getPage(i + 1)
-      const desiredWidth = 160
+      const desiredWidth = 320
       const originalViewport = page.getViewport({ scale: 1 })
       const scale = desiredWidth / originalViewport.width
       const viewport = page.getViewport({ scale })
@@ -208,9 +208,9 @@ async function renderThumbnails(filePath: string, pageCount: number): Promise<vo
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     grid.innerHTML = `
-      <div class="loading-container" style="grid-column: 1 / -1">
-        <span style="font-size: 2rem">⚠️</span>
-        <p style="color: var(--error)">Error al cargar: ${message}</p>
+      <div class="loading-container" style="grid-column: 1 / -1; flex-direction: column; gap: 16px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+        <p style="color: var(--error)">Error al cargar las páginas: ${message}</p>
         <button class="btn-secondary" id="retry-btn">Reintentar</button>
       </div>
     `

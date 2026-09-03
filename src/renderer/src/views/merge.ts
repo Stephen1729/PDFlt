@@ -51,11 +51,11 @@ export function renderMerge(container: HTMLElement): void {
           </svg>
           Guardar PDF
         </button>
-        <div class="chain-actions">
+        <div class="chain-actions" id="chain-actions" style="display: none;">
           <span style="color:var(--text-muted); font-size: 0.85rem">o continuar en:</span>
-          <button id="merge-to-reorder" class="btn-secondary" title="Reordenar">➡️ Reordenar</button>
-          <button id="merge-to-split" class="btn-secondary" title="Separar">➡️ Separar</button>
-          <button id="merge-to-compress" class="btn-secondary" title="Comprimir">➡️ Comprimir</button>
+          <button id="merge-to-reorder" class="btn-secondary" title="Reordenar">Reordenar</button>
+          <button id="merge-to-split" class="btn-secondary" title="Separar">Separar</button>
+          <button id="merge-to-compress" class="btn-secondary" title="Comprimir">Comprimir</button>
         </div>
       </div>
     </div>
