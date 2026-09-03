@@ -1,4 +1,4 @@
-﻿import { pdfService } from '../services/pdfService'
+import { pdfService } from '../services/pdfService'
 import * as pdfjsLib from 'pdfjs-dist'
 import Sortable from 'sortablejs'
 import { navigateTo, showNotification } from '../router'
@@ -30,7 +30,7 @@ export function renderReorder(container: HTMLElement, payload?: any): void {
 
   container.innerHTML = `
     <div class="view-header">
-      <h2>Arrastra las pÃ¡ginas para reordenarlas</h2>
+      <h2>Reordenar páginas</h2>
       <span id="file-name" class="file-name"></span>
     </div>
 
@@ -44,8 +44,7 @@ export function renderReorder(container: HTMLElement, payload?: any): void {
           <line x1="12" y1="18" x2="12" y2="12"/>
           <line x1="9" y1="15" x2="15" y2="15"/>
         </svg>
-        <p>Haz clic para seleccionar un PDF</p>
-        <span style="font-size: 0.8rem; color: var(--text-muted)">o arrastra un archivo aquÃ­</span>
+        <p>Toca para seleccionar un PDF</p>
       </div>
     </div>
 

@@ -1,4 +1,4 @@
-﻿import { pdfService } from '../services/pdfService'
+import { pdfService } from '../services/pdfService'
 import Sortable from 'sortablejs'
 import { navigateTo, showNotification } from '../router'
 import type { PdfFileInfo } from '../../../shared/types'
@@ -28,15 +28,15 @@ export function renderMerge(container: HTMLElement): void {
           <line x1="12" y1="18" x2="12" y2="12"/>
           <line x1="9" y1="15" x2="15" y2="15"/>
         </svg>
-        <p>Haz clic para seleccionar varios PDFs</p>
+        <p>Toca para seleccionar PDFs</p>
       </div>
     </div>
 
     <!-- File list area (visible when files loaded) -->
     <div id="file-list-container" style="display:none; padding: 1rem; width: 100%; max-width: 800px; margin: 0 auto; flex: 1; overflow-y: auto;">
-      <p style="margin-bottom: 1rem; color: var(--text-muted);">Arrastra los archivos para reordenarlos.</p>
+      <p style="margin-bottom: 1rem; color: var(--text-muted);">Toca y arrastra los archivos para reordenarlos.</p>
       <div id="file-list" style="display: flex; flex-direction: column; gap: 0.5rem;"></div>
-      <button id="add-more-btn" class="btn-secondary" style="margin-top: 1rem; width: 100%;">+ AÃ±adir mÃ¡s PDFs</button>
+      <button id="add-more-btn" class="btn-secondary" style="margin-top: 1rem; width: 100%;">+ Añadir más PDFs</button>
     </div>
 
     <!-- Action bar (visible when files loaded) -->

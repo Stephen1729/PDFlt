@@ -1,4 +1,4 @@
-﻿import { pdfService } from '../services/pdfService'
+import { pdfService } from '../services/pdfService'
 import * as pdfjsLib from 'pdfjs-dist'
 import { showNotification, navigateTo } from '../router'
 import type { PdfFileInfo } from '../../../shared/types'
@@ -28,8 +28,8 @@ export function renderSplit(container: HTMLElement, payload?: any): void {
           <path d="M14 3v5h5M16 13H8M16 17H8M10 9H8"/>
         </svg>
         <h3>Separar PDF</h3>
-        <p>Arrastra tu PDF aquÃ­ o haz clic para seleccionar</p>
-        <button id="open-btn" class="btn-primary" style="margin-top: 1rem;">Seleccionar PDF</button>
+        <p>Toca para seleccionar un PDF</p>
+        <button id="open-btn" class="btn-primary" style="margin-top: 1rem; display: none;">Seleccionar PDF</button>
       </div>
     </div>
 
@@ -38,7 +38,7 @@ export function renderSplit(container: HTMLElement, payload?: any): void {
       <div class="thumbnails-header">
         <h2 id="file-name" style="margin-bottom: 4px;"></h2>
         <p style="color: var(--text-muted); font-size: 0.9rem;">
-          Haz clic en las pÃ¡ginas que deseas extraer al nuevo PDF.
+          Toca las páginas que deseas extraer al nuevo PDF.
         </p>
       </div>
       <div id="thumbnails-grid" class="thumbnails-grid"></div>

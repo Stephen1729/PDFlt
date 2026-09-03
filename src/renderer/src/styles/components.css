@@ -452,70 +452,70 @@
 }
 
 /* ═══════════════════════════════════════════
-   Sidebar
+   Mobile Navigation
    ═══════════════════════════════════════════ */
 
-.sidebar {
-  width: 240px;
-  background: var(--bg-secondary);
-  border-right: 1px solid var(--border);
-  display: flex;
+#app {
   flex-direction: column;
+}
+
+.mobile-header {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-weight: 700;
+  font-size: 1.2rem;
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   z-index: 10;
 }
 
-.sidebar-header {
-  height: 56px;
+.bottom-info {
   display: flex;
   align-items: center;
-  padding: 0 24px;
-  font-weight: 700;
-  font-size: 1.1rem;
-  color: var(--text-primary);
-  border-bottom: 1px solid var(--border);
-  margin-top: 32px; /* space for drag region */
+  justify-content: center;
+  gap: 8px;
+  padding: 8px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background: var(--bg-primary);
 }
 
-.sidebar-nav {
+.bottom-nav {
   display: flex;
-  flex-direction: column;
-  padding: 16px 12px;
-  gap: 4px;
+  flex-direction: row;
+  justify-content: space-around;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+  padding: 8px 0;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  flex-shrink: 0;
+  z-index: 10;
 }
 
 .nav-item {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
-  padding: 10px 16px;
-  color: var(--text-secondary);
+  gap: 6px;
+  padding: 8px 12px;
+  color: var(--text-muted);
   text-decoration: none;
-  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
   font-weight: 500;
   transition: all var(--duration) var(--ease);
 }
 
 .nav-item:hover {
-  background: var(--bg-card);
   color: var(--text-primary);
 }
 
 .nav-item.active {
-  background: var(--bg-primary); /* Darker, matches main content */
-  color: var(--text-primary);
-  position: relative;
-}
-
-.nav-item.active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: var(--accent);
-  border-radius: 0 3px 3px 0;
+  color: var(--accent);
 }
 
 /* ═══════════════════════════════════════════
@@ -533,7 +533,6 @@
   flex-direction: column;
   position: relative;
   overflow: hidden;
-  margin-top: 32px; /* space for drag region */
   background: transparent;
 }
 

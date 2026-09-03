@@ -1,4 +1,4 @@
-﻿import { pdfService } from '../services/pdfService'
+import { pdfService } from '../services/pdfService'
 import * as pdfjsLib from 'pdfjs-dist'
 import { showNotification, navigateTo } from '../router'
 import type { PdfFileInfo, CompressionLevel } from '../../../shared/types'
@@ -27,8 +27,8 @@ export function renderCompress(container: HTMLElement, payload?: any): void {
           <line x1="12" y1="22" x2="12" y2="12"></line>
         </svg>
         <h3>Comprimir PDF</h3>
-        <p>Arrastra tu PDF aquÃ­ o haz clic para seleccionar</p>
-        <button id="open-btn" class="btn-primary" style="margin-top: 1rem;">Seleccionar PDF</button>
+        <p>Toca para seleccionar un PDF</p>
+        <button id="open-btn" class="btn-primary" style="margin-top: 1rem; display: none;">Seleccionar PDF</button>
       </div>
     </div>
 
@@ -49,19 +49,19 @@ export function renderCompress(container: HTMLElement, payload?: any): void {
         <div class="compression-card" data-level="extreme">
           <div class="card-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
           <h3>Fuerte</h3>
-          <p>MÃ­nimo tamaÃ±o. Menor resoluciÃ³n (100 DPI). Ideal para enviar por correo o lÃ­mites web.</p>
+          <p>Mínimo tamaño. Menor resolución (100 DPI). Ideal para enviar por correo.</p>
         </div>
 
         <div class="compression-card selected" data-level="recommended">
           <div class="card-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></div>
           <h3>Equilibrada</h3>
-          <p>Mejor relaciÃ³n calidad/tamaÃ±o (150 DPI). Ideal para fotos, escaneos y lectura en pantalla.</p>
+          <p>Mejor relación calidad/tamaño (150 DPI). Ideal para leer en pantalla.</p>
         </div>
 
-        <div class="compression-card" data-level="basic">
-          <div class="card-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/><line x1="16" y1="8" x2="2" y2="22"/><line x1="17.5" y1="15" x2="9" y2="15"/></svg></div>
-          <h3>Ligera</h3>
-          <p>Sin pÃ©rdida. Mantiene vectores y texto seleccionable. Limpia metadatos y estructura.</p>
+        <div class="compression-card" data-level="low">
+          <div class="card-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>
+          <h3>Suave</h3>
+          <p>Alta calidad. Mayor resolución (300 DPI). Ideal para impresión.</p>
         </div>
       </div>
 
