@@ -27,6 +27,15 @@ const electronAPI: ElectronAPI = {
   extractPages: (filePath: string, selectedIndices: number[], toTemp?: boolean) =>
     ipcRenderer.invoke(IPC_CHANNELS.EXTRACT_PAGES, filePath, selectedIndices, toTemp),
 
+  compressStructural: (filePath: string, toTemp?: boolean) =>
+    ipcRenderer.invoke(IPC_CHANNELS.COMPRESS_STRUCTURAL, filePath, toTemp),
+
+  assembleCompressedPdf: (imagesBase64: string[], dimensions: any[], toTemp?: boolean) =>
+    ipcRenderer.invoke(IPC_CHANNELS.ASSEMBLE_COMPRESSED_PDF, imagesBase64, dimensions, toTemp),
+
+  copyFile: (source: string, destination: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.COPY_FILE, source, destination),
+
   saveFileDialog: (defaultName: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.SAVE_DIALOG, defaultName)
 }

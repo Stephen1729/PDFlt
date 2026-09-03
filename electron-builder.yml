@@ -1,5 +1,5 @@
-appId: com.pdftoolkit.app
-productName: PDFToolkit
+appId: com.pdflt.app
+productName: PDFlt
 directories:
   buildResources: resources
   output: dist
@@ -9,20 +9,20 @@ files:
   - '!electron.vite.config.*'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
 win:
-  executableName: PDFToolkit
+  executableName: PDFlt
   target:
     - nsis
 nsis:
-  artifactName: PDFToolkit-Setup-${version}.${ext}
-  shortcutName: PDFToolkit
-  uninstallDisplayName: PDFToolkit
+  artifactName: PDFlt-Setup-${version}.${ext}
+  shortcutName: PDFlt
+  uninstallDisplayName: PDFlt
   createDesktopShortcut: always
 mac:
   target:
     - dmg
-  artifactName: PDFToolkit-${version}.${ext}
+  artifactName: PDFlt-${version}.${ext}
 linux:
   target:
     - AppImage
-  artifactName: PDFToolkit-${version}.${ext}
+  artifactName: PDFlt-${version}.${ext}
 

@@ -93,6 +93,48 @@
   white-space: nowrap;
 }
 
+/* Compression Levels */
+.compression-card {
+  background: var(--bg-secondary);
+  border: 2px solid transparent;
+  border-radius: 12px;
+  padding: 1.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.compression-card:hover {
+  background: var(--bg-tertiary);
+  transform: translateY(-2px);
+}
+
+.compression-card.selected {
+  border-color: var(--primary);
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.compression-card .card-icon {
+  font-size: 2rem;
+  margin-bottom: 8px;
+}
+
+.compression-card h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.1rem;
+}
+
+.compression-card p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
 /* ═══════════════════════════════════════════
    Home View — Feature Cards
    ═══════════════════════════════════════════ */
@@ -492,10 +534,7 @@
   position: relative;
   overflow: hidden;
   margin-top: 32px; /* space for drag region */
-  background-color: var(--bg-primary);
-  background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-  background-size: 32px 32px;
-  animation: starlight 60s linear infinite;
+  background: transparent;
 }
 
 

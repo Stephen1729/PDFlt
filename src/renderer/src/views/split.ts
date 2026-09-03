@@ -48,6 +48,7 @@ export function renderSplit(container: HTMLElement, payload?: any): void {
       <span id="selection-info" class="page-info">0 seleccionadas</span>
       <div class="action-buttons">
         <button id="select-all-btn" class="btn-secondary">Seleccionar todas</button>
+        <button id="invert-btn" class="btn-secondary">Invertir selección</button>
         <button id="extract-btn" class="btn-primary" disabled>
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -113,7 +114,8 @@ function setupEventListeners(): void {
   document.getElementById('split-to-merge')?.addEventListener('click', () => handleExtract(true, 'merge'))
   document.getElementById('split-to-reorder')?.addEventListener('click', () => handleExtract(true, 'reorder'))
   document.getElementById('split-to-compress')?.addEventListener('click', () => handleExtract(true, 'compress'))
-  document.getElementById('split-all-btn')?.addEventListener('click', handleSelectAll)
+  document.getElementById('select-all-btn')?.addEventListener('click', handleSelectAll)
+  document.getElementById('invert-btn')?.addEventListener('click', handleInvertSelection)
 }
 
 async function handleOpenFile(): Promise<void> {
@@ -264,6 +266,29 @@ function handleSelectAll(): void {
     cards.forEach(card => card.classList.add('selected'))
   }
   
+  updateSelectionInfo()
+}
+
+function handleInvertSelection(): void {
+  const grid = document.getElementById('thumbnails-grid')!
+  const cards = grid.querySelectorAll('.thumbnail-card')
+  
+  for (let i = 0; i < totalPageCount; i++) {
+    if (selectedPages.has(i)) {
+      selectedPages.delete(i)
+    } else {
+      selectedPages.add(i)
+    }
+  }
+
+  cards.forEach((card, i) => {
+    if (selectedPages.has(i)) {
+      card.classList.add('selected')
+    } else {
+      card.classList.remove('selected')
+    }
+  })
+
   updateSelectionInfo()
 }
 

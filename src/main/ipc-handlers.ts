@@ -1,11 +1,12 @@
-import { ipcMain, dialog, BrowserWindow } from 'electron'
+import { ipcMain, dialog, BrowserWindow, app } from 'electron'
 import { readFile, stat } from 'fs/promises'
-import { basename } from 'path'
+import { basename, join } from 'path'
 import { IPC_CHANNELS, PdfFileInfo, OperationResult } from '../shared/types'
 import { validatePdf } from './pdf/validator'
 import { reorderPdfPages } from './pdf/reorder'
 import { mergePdfs } from './pdf/merge'
 import { extractPages } from './pdf/extract'
+import { compressStructural, assembleCompressedPdf } from './pdf/compress'
 
 export function registerIpcHandlers(): void {
   // ── Open file dialog → validate PDF → return info ──
@@ -224,6 +225,37 @@ export function registerIpcHandlers(): void {
       }
 
       return extractPages(filePath, sortedIndices, saveResult.filePath)
+    }
+  )
+
+  // ── Compress Structural ──
+  ipcMain.handle(
+    IPC_CHANNELS.COMPRESS_STRUCTURAL,
+    async (_event, filePath: string, toTemp?: boolean): Promise<OperationResult> => {
+      return compressStructural(filePath, toTemp)
+    }
+  )
+
+  // ── Assemble Compressed PDF ──
+  ipcMain.handle(
+    IPC_CHANNELS.ASSEMBLE_COMPRESSED_PDF,
+    async (_event, imagesBase64: string[], dimensions: any[], toTemp?: boolean): Promise<OperationResult> => {
+      return assembleCompressedPdf(imagesBase64, dimensions, toTemp)
+    }
+  )
+
+  // ── Copy File (from temp to user destination) ──
+  ipcMain.handle(
+    IPC_CHANNELS.COPY_FILE,
+    async (_event, source: string, destination: string): Promise<boolean> => {
+      try {
+        const { copyFile } = require('fs/promises')
+        await copyFile(source, destination)
+        return true
+      } catch (err) {
+        console.error('Error copying file:', err)
+        return false
+      }
     }
   )
 }

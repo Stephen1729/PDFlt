@@ -13,7 +13,16 @@ export interface OperationResult {
   outputPath?: string
   error?: string
   pageCount?: number
+  originalSize?: number
+  compressedSize?: number
 }
+
+export interface PageDimension {
+  width: number
+  height: number
+}
+
+export type CompressionLevel = 'extreme' | 'recommended' | 'basic'
 
 export const IPC_CHANNELS = {
   OPEN_PDF: 'pdf:open-file',
@@ -24,6 +33,9 @@ export const IPC_CHANNELS = {
   REORDER_PAGES: 'pdf:reorder-pages',
   MERGE_PDFS: 'pdf:merge-pdfs',
   EXTRACT_PAGES: 'pdf:extract-pages',
+  COMPRESS_STRUCTURAL: 'pdf:compress-structural',
+  ASSEMBLE_COMPRESSED_PDF: 'pdf:assemble-compressed',
+  COPY_FILE: 'pdf:copy-file',
   SAVE_DIALOG: 'dialog:save-file'
 } as const
 
@@ -37,6 +49,9 @@ export interface ElectronAPI {
   reorderPages: (filePath: string, newOrder: number[], toTemp?: boolean) => Promise<OperationResult>
   mergePdfs: (filePaths: string[], toTemp?: boolean) => Promise<OperationResult>
   extractPages: (filePath: string, selectedIndices: number[], toTemp?: boolean) => Promise<OperationResult>
+  compressStructural: (filePath: string, toTemp?: boolean) => Promise<OperationResult>
+  assembleCompressedPdf: (imagesBase64: string[], dimensions: PageDimension[], toTemp?: boolean) => Promise<OperationResult>
+  copyFile: (source: string, destination: string) => Promise<boolean>
   saveFileDialog: (defaultName: string) => Promise<string | null>
 }
 

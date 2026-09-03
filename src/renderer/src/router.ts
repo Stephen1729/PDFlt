@@ -1,6 +1,7 @@
 import { renderReorder } from './views/reorder'
 import { renderMerge } from './views/merge'
 import { renderSplit } from './views/split'
+import { renderCompress } from './views/compress'
 
 export type ViewName = 'reorder' | 'merge' | 'split' | 'compress'
 
@@ -18,6 +19,7 @@ export function navigateTo(view: ViewName, payload?: any): void {
     }
   })
 
+  // Render view immediately for maximum responsiveness
   switch (view) {
     case 'reorder':
       renderReorder(container, payload)
@@ -29,7 +31,7 @@ export function navigateTo(view: ViewName, payload?: any): void {
       renderSplit(container, payload)
       break
     case 'compress':
-      renderComingSoon(container, view)
+      renderCompress(container, payload)
       break
   }
 }

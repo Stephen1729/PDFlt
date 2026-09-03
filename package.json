@@ -1,5 +1,5 @@
 {
-  "name": "pdf-toolkit",
+  "name": "pdflt",
   "version": "1.0.0",
   "description": "Herramienta local para manipular PDFs — 100% offline",
   "main": "./out/main/index.js",

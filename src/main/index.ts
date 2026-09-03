@@ -9,7 +9,7 @@ function createWindow(): void {
     minWidth: 800,
     minHeight: 600,
     show: false,
-    title: 'PDFToolkit',
+    title: 'PDFlt',
     backgroundColor: '#0f0f1a',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),

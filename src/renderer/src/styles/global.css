@@ -7,6 +7,53 @@
   box-sizing: border-box;
 }
 
+/* Minimalist Animated Orbits */
+.bg-animation {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.orbit {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.orbit-1 {
+  width: 600px;
+  height: 600px;
+  animation: spin 60s linear infinite;
+  border-left-color: rgba(255, 255, 255, 0.25);
+}
+
+.orbit-2 {
+  width: 900px;
+  height: 900px;
+  animation: spin 90s linear infinite reverse;
+  border-right-color: rgba(43, 112, 201, 0.35); /* theme accent blue */
+}
+
+.orbit-3 {
+  width: 1200px;
+  height: 1200px;
+  animation: spin 120s linear infinite;
+  border-top-color: rgba(255, 255, 255, 0.20);
+}
+
+@keyframes spin {
+  0% { transform: translate(-50%, -50%) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
 html, body {
   height: 100%;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -24,6 +71,8 @@ html, body {
   height: 100%;
   display: flex;
   flex-direction: row;
+  position: relative;
+  z-index: 1;
 }
 
 /* ── Scrollbar ── */
