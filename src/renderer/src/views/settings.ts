@@ -1,7 +1,7 @@
-﻿export async function renderSettings(container: HTMLElement): Promise<void> {
+export async function renderSettings(container: HTMLElement): Promise<void> {
   const version = '1.0.0'
 
-  container.innerHTML = \
+  container.innerHTML = `
     <div class="view-header" style="justify-content: center;">
       <h2>Configuración</h2>
     </div>
@@ -14,12 +14,12 @@
           </svg>
           PDFlt para Android
         </h3>
-        <p style="color: var(--text-muted); margin-bottom: 24px;">Versión instalada: <strong>v$version</strong></p>
+        <p style="color: var(--text-muted); margin-bottom: 24px;">Versión instalada: <strong>v${version}</strong></p>
         
         <div style="margin-top: 16px; font-size: 0.95rem; color: var(--text-muted);">
           <p>Esta es la versión móvil offline de PDFlt. Las actualizaciones se distribuyen a través de la tienda de aplicaciones o mediante un nuevo archivo APK.</p>
         </div>
       </div>
     </div>
-  \
+  `
 }

@@ -145,12 +145,11 @@ function setupEventListeners(): void {
     
     const files = e.dataTransfer?.files
     if (files && files.length > 0) {
-      const paths = Array.from(files)
-        .map(f => pdfService.getFilePath(f))
-        .filter(p => p && p.toLowerCase().endsWith('.pdf'))
+      const fileArray = Array.from(files) as File[]
+      const pdfFiles = fileArray.filter(f => f.name.toLowerCase().endsWith('.pdf'))
         
-      if (paths.length > 0) {
-        const infos = await pdfService.processDroppedFiles([paths[0]])
+      if (pdfFiles.length > 0) {
+        const infos = await pdfService.processDroppedFiles([pdfFiles[0]])
         if (infos && infos.length > 0) {
           loadPdf(infos[0])
         }
