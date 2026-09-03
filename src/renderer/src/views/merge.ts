@@ -1,8 +1,9 @@
+﻿import { pdfService } from '../services/pdfService'
 import Sortable from 'sortablejs'
 import { navigateTo, showNotification } from '../router'
 import type { PdfFileInfo } from '../../../shared/types'
 
-// ── Module state ──
+// â”€â”€ Module state â”€â”€
 let selectedFiles: PdfFileInfo[] = []
 
 /**
@@ -35,7 +36,7 @@ export function renderMerge(container: HTMLElement): void {
     <div id="file-list-container" style="display:none; padding: 1rem; width: 100%; max-width: 800px; margin: 0 auto; flex: 1; overflow-y: auto;">
       <p style="margin-bottom: 1rem; color: var(--text-muted);">Arrastra los archivos para reordenarlos.</p>
       <div id="file-list" style="display: flex; flex-direction: column; gap: 0.5rem;"></div>
-      <button id="add-more-btn" class="btn-secondary" style="margin-top: 1rem; width: 100%;">+ Añadir más PDFs</button>
+      <button id="add-more-btn" class="btn-secondary" style="margin-top: 1rem; width: 100%;">+ AÃ±adir mÃ¡s PDFs</button>
     </div>
 
     <!-- Action bar (visible when files loaded) -->
@@ -65,7 +66,7 @@ export function renderMerge(container: HTMLElement): void {
 }
 
 function setupEventListeners(): void {
-  // Drop zone click → open multiple file dialog
+  // Drop zone click â†’ open multiple file dialog
   const dropZone = document.getElementById('drop-zone')!
   dropZone.addEventListener('click', handleOpenFiles)
 
@@ -87,12 +88,7 @@ function setupEventListeners(): void {
     
     const files = e.dataTransfer?.files
     if (files && files.length > 0) {
-      const paths = Array.from(files)
-        .map(f => window.electronAPI.getFilePath(f))
-        .filter(p => p && p.toLowerCase().endsWith('.pdf'))
-        
-      if (paths.length > 0) {
-        const infos = await window.electronAPI.processDroppedFiles(paths)
+      const fileArray = Array.from(files) as File[]; if (fileArray.length > 0) { const infos = await pdfService.processDroppedFiles(fileArray)
         if (infos && infos.length > 0) {
           selectedFiles = [...selectedFiles, ...infos]
           renderFileList()
@@ -112,7 +108,7 @@ function setupEventListeners(): void {
 }
 
 async function handleOpenFiles(): Promise<void> {
-  const newFiles = await window.electronAPI.openMultiplePdfDialog()
+  const newFiles = await pdfService.openMultiplePdfDialog()
   if (newFiles && newFiles.length > 0) {
     selectedFiles = [...selectedFiles, ...newFiles]
     renderFileList()
@@ -161,7 +157,7 @@ function renderFileList(): void {
       </div>
       <div style="flex: 1; overflow: hidden;">
         <div style="font-weight: 500; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;">${file.fileName}</div>
-        <div style="font-size: 0.8rem; color: var(--text-muted);">${file.pageCount} páginas</div>
+        <div style="font-size: 0.8rem; color: var(--text-muted);">${file.pageCount} pÃ¡ginas</div>
       </div>
       <button class="remove-btn btn-icon" data-idx="${index}" title="Eliminar" style="margin-left: 1rem; color: var(--error);">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
@@ -170,7 +166,7 @@ function renderFileList(): void {
     fileList.appendChild(item)
   })
 
-  mergeInfo.textContent = `${selectedFiles.length} archivos · ${totalPages} páginas totales`
+  mergeInfo.textContent = `${selectedFiles.length} archivos Â· ${totalPages} pÃ¡ginas totales`
 
   // Bind remove buttons
   fileList.querySelectorAll('.remove-btn').forEach((btn) => {
@@ -215,21 +211,21 @@ async function handleMerge(toTemp: boolean, targetView?: any): Promise<void> {
 
   try {
     const filePaths = selectedFiles.map(f => f.filePath)
-    const result = await window.electronAPI.mergePdfs(filePaths, toTemp)
+    const result = await pdfService.mergePdfs(filePaths, toTemp)
 
     if (result.success && result.outputPath) {
       if (toTemp && targetView) {
-        const fileInfo = await window.electronAPI.getFileInfo(result.outputPath)
+        const fileInfo = await pdfService.getFileInfo(result.outputPath)
         if (fileInfo) {
           showNotification('Redirigiendo...', 'success')
           navigateTo(targetView, { fileInfo })
         }
       } else {
-        showNotification(`PDF guardado correctamente (${result.pageCount} páginas)`, 'success')
+        showNotification(`PDF guardado correctamente (${result.pageCount} pÃ¡ginas)`, 'success')
         selectedFiles = []
         renderFileList()
       }
-    } else if (result.error !== 'Operación cancelada') {
+    } else if (result.error !== 'OperaciÃ³n cancelada') {
       showNotification(result.error || 'Error desconocido al unir', 'error')
     }
   } catch (err) {
@@ -240,4 +236,6 @@ async function handleMerge(toTemp: boolean, targetView?: any): Promise<void> {
     btn.innerHTML = originalText
   }
 }
+
+
 

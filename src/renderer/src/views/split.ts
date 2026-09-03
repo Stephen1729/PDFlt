@@ -1,3 +1,4 @@
+﻿import { pdfService } from '../services/pdfService'
 import * as pdfjsLib from 'pdfjs-dist'
 import { showNotification, navigateTo } from '../router'
 import type { PdfFileInfo } from '../../../shared/types'
@@ -8,7 +9,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url
 ).toString()
 
-// ── Module state ──
+// â”€â”€ Module state â”€â”€
 let currentFilePath: string | null = null
 let totalPageCount = 0
 let selectedPages: Set<number> = new Set()
@@ -27,7 +28,7 @@ export function renderSplit(container: HTMLElement, payload?: any): void {
           <path d="M14 3v5h5M16 13H8M16 17H8M10 9H8"/>
         </svg>
         <h3>Separar PDF</h3>
-        <p>Arrastra tu PDF aquí o haz clic para seleccionar</p>
+        <p>Arrastra tu PDF aquÃ­ o haz clic para seleccionar</p>
         <button id="open-btn" class="btn-primary" style="margin-top: 1rem;">Seleccionar PDF</button>
       </div>
     </div>
@@ -37,7 +38,7 @@ export function renderSplit(container: HTMLElement, payload?: any): void {
       <div class="thumbnails-header">
         <h2 id="file-name" style="margin-bottom: 4px;"></h2>
         <p style="color: var(--text-muted); font-size: 0.9rem;">
-          Haz clic en las páginas que deseas extraer al nuevo PDF.
+          Haz clic en las pÃ¡ginas que deseas extraer al nuevo PDF.
         </p>
       </div>
       <div id="thumbnails-grid" class="thumbnails-grid"></div>
@@ -48,7 +49,7 @@ export function renderSplit(container: HTMLElement, payload?: any): void {
       <span id="selection-info" class="page-info">0 seleccionadas</span>
       <div class="action-buttons">
         <button id="select-all-btn" class="btn-secondary">Seleccionar todas</button>
-        <button id="invert-btn" class="btn-secondary">Invertir selección</button>
+        <button id="invert-btn" class="btn-secondary">Invertir selecciÃ³n</button>
         <button id="extract-btn" class="btn-primary" disabled>
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -97,11 +98,11 @@ function setupEventListeners(): void {
     const files = e.dataTransfer?.files
     if (files && files.length > 0) {
       const paths = Array.from(files)
-        .map(f => window.electronAPI.getFilePath(f))
+        .map(f => pdfService.getFilePath(f))
         .filter(p => p && p.toLowerCase().endsWith('.pdf'))
         
       if (paths.length > 0) {
-        const infos = await window.electronAPI.processDroppedFiles([paths[0]])
+        const infos = await pdfService.processDroppedFiles([paths[0]])
         if (infos && infos.length > 0) {
           await loadPdf(infos[0])
         }
@@ -119,7 +120,7 @@ function setupEventListeners(): void {
 }
 
 async function handleOpenFile(): Promise<void> {
-  const fileInfo = await window.electronAPI.openPdfDialog()
+  const fileInfo = await pdfService.openPdfDialog()
   if (fileInfo) {
     await loadPdf(fileInfo)
   }
@@ -150,12 +151,12 @@ async function renderThumbnails(filePath: string, pageCount: number): Promise<vo
   grid.innerHTML = `
     <div class="loading-container" style="grid-column: 1 / -1">
       <div class="spinner"></div>
-      <span class="loading-text">Cargando páginas...</span>
+      <span class="loading-text">Cargando pÃ¡ginas...</span>
     </div>
   `
 
   try {
-    const arrayBuffer = await window.electronAPI.readPdfFile(filePath)
+    const arrayBuffer = await pdfService.readPdfFile(filePath)
     const pdf = await pdfjsLib.getDocument({
       data: new Uint8Array(arrayBuffer)
     }).promise
@@ -186,7 +187,7 @@ async function renderThumbnails(filePath: string, pageCount: number): Promise<vo
 
       const label = document.createElement('div')
       label.className = 'thumbnail-label'
-      label.textContent = `Pág. ${i + 1}`
+      label.textContent = `PÃ¡g. ${i + 1}`
 
       card.appendChild(imageDiv)
       card.appendChild(label)
@@ -210,7 +211,7 @@ async function renderThumbnails(filePath: string, pageCount: number): Promise<vo
     grid.innerHTML = `
       <div class="loading-container" style="grid-column: 1 / -1; flex-direction: column; gap: 16px;">
         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-        <p style="color: var(--error)">Error al cargar las páginas: ${message}</p>
+        <p style="color: var(--error)">Error al cargar las pÃ¡ginas: ${message}</p>
         <button class="btn-secondary" id="retry-btn">Reintentar</button>
       </div>
     `
@@ -225,7 +226,7 @@ function updateSelectionInfo(): void {
   const chainBtns = document.querySelectorAll('.chain-actions button')
 
   if (count === 0) {
-    infoSpan.textContent = 'Selecciona las páginas a extraer'
+    infoSpan.textContent = 'Selecciona las pÃ¡ginas a extraer'
     btn.disabled = true
     chainBtns.forEach(b => (b as HTMLButtonElement).disabled = true)
     btn.innerHTML = `
@@ -246,7 +247,7 @@ function updateSelectionInfo(): void {
         <polyline points="7 10 12 15 17 10"></polyline>
         <line x1="12" y1="15" x2="12" y2="3"></line>
       </svg>
-      Guardar PDF (${count} pág)
+      Guardar PDF (${count} pÃ¡g)
     `
   }
 }
@@ -304,19 +305,19 @@ async function handleExtract(toTemp: boolean, targetView?: any): Promise<void> {
 
   try {
     const indices = Array.from(selectedPages)
-    const result = await window.electronAPI.extractPages(currentFilePath, indices, toTemp)
+    const result = await pdfService.extractPages(currentFilePath, indices, toTemp)
 
     if (result.success && result.outputPath) {
       if (toTemp && targetView) {
-        const fileInfo = await window.electronAPI.getFileInfo(result.outputPath)
+        const fileInfo = await pdfService.getFileInfo(result.outputPath)
         if (fileInfo) {
           showNotification('Redirigiendo...', 'success')
           navigateTo(targetView, { fileInfo })
         }
       } else {
-        showNotification(`Extraído exitosamente (${result.pageCount} páginas)`, 'success')
+        showNotification(`ExtraÃ­do exitosamente (${result.pageCount} pÃ¡ginas)`, 'success')
       }
-    } else if (result.error !== 'Operación cancelada') {
+    } else if (result.error !== 'OperaciÃ³n cancelada') {
       showNotification(result.error || 'Error desconocido', 'error')
     }
   } catch (err) {
@@ -327,4 +328,6 @@ async function handleExtract(toTemp: boolean, targetView?: any): Promise<void> {
     btn.innerHTML = originalHtml
   }
 }
+
+
 

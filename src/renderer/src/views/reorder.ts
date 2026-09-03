@@ -1,3 +1,4 @@
+﻿import { pdfService } from '../services/pdfService'
 import * as pdfjsLib from 'pdfjs-dist'
 import Sortable from 'sortablejs'
 import { navigateTo, showNotification } from '../router'
@@ -10,7 +11,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url
 ).toString()
 
-// ── Module state ──
+// â”€â”€ Module state â”€â”€
 let currentFilePath: string | null = null
 let currentPageOrder: number[] = []
 let originalPageCount = 0
@@ -29,7 +30,7 @@ export function renderReorder(container: HTMLElement, payload?: any): void {
 
   container.innerHTML = `
     <div class="view-header">
-      <h2>Arrastra las páginas para reordenarlas</h2>
+      <h2>Arrastra las pÃ¡ginas para reordenarlas</h2>
       <span id="file-name" class="file-name"></span>
     </div>
 
@@ -44,7 +45,7 @@ export function renderReorder(container: HTMLElement, payload?: any): void {
           <line x1="9" y1="15" x2="15" y2="15"/>
         </svg>
         <p>Haz clic para seleccionar un PDF</p>
-        <span style="font-size: 0.8rem; color: var(--text-muted)">o arrastra un archivo aquí</span>
+        <span style="font-size: 0.8rem; color: var(--text-muted)">o arrastra un archivo aquÃ­</span>
       </div>
     </div>
 
@@ -55,7 +56,7 @@ export function renderReorder(container: HTMLElement, payload?: any): void {
 
     <!-- Action bar -->
     <div id="action-bar" class="action-bar" style="display:none">
-      <span id="page-info" class="page-info">0 páginas</span>
+      <span id="page-info" class="page-info">0 pÃ¡ginas</span>
       <div class="action-buttons">
         <button id="reset-btn" class="btn-secondary">Restablecer orden</button>
         <button id="save-btn" class="btn-primary">
@@ -86,7 +87,7 @@ export function renderReorder(container: HTMLElement, payload?: any): void {
 }
 
 function setupEventListeners(): void {
-  // Drop zone click → open file dialog
+  // Drop zone click â†’ open file dialog
   const dropZone = document.getElementById('drop-zone')!
   dropZone.addEventListener('click', handleOpenFile)
 
@@ -109,11 +110,11 @@ function setupEventListeners(): void {
     const files = e.dataTransfer?.files
     if (files && files.length > 0) {
       const paths = Array.from(files)
-        .map(f => window.electronAPI.getFilePath(f))
+        .map(f => pdfService.getFilePath(f))
         .filter(p => p && p.toLowerCase().endsWith('.pdf'))
         
       if (paths.length > 0) {
-        const infos = await window.electronAPI.processDroppedFiles([paths[0]])
+        const infos = await pdfService.processDroppedFiles([paths[0]])
         if (infos && infos.length > 0) {
           await loadPdf(infos[0])
         }
@@ -132,7 +133,7 @@ function setupEventListeners(): void {
 }
 
 async function handleOpenFile(): Promise<void> {
-  const fileInfo = await window.electronAPI.openPdfDialog()
+  const fileInfo = await pdfService.openPdfDialog()
   if (fileInfo) {
     await loadPdf(fileInfo)
   }
@@ -149,7 +150,7 @@ async function loadPdf(fileInfo: PdfFileInfo): Promise<void> {
   // Show encrypted warning
   if (fileInfo.isEncrypted) {
     showNotification(
-      'Este PDF tiene restricciones de seguridad. El resultado podría no preservar todas las protecciones.',
+      'Este PDF tiene restricciones de seguridad. El resultado podrÃ­a no preservar todas las protecciones.',
       'warning'
     )
   }
@@ -160,7 +161,7 @@ async function loadPdf(fileInfo: PdfFileInfo): Promise<void> {
   document.getElementById('action-bar')!.style.display = 'flex'
 
   // Update page info
-  document.getElementById('page-info')!.textContent = `${fileInfo.pageCount} páginas`
+  document.getElementById('page-info')!.textContent = `${fileInfo.pageCount} pÃ¡ginas`
 
   // Render thumbnails
   await renderThumbnails(fileInfo.filePath, fileInfo.pageCount)
@@ -173,13 +174,13 @@ async function renderThumbnails(filePath: string, pageCount: number): Promise<vo
   grid.innerHTML = `
     <div class="loading-container" style="grid-column: 1 / -1">
       <div class="spinner"></div>
-      <span class="loading-text">Cargando páginas...</span>
+      <span class="loading-text">Cargando pÃ¡ginas...</span>
     </div>
   `
 
   try {
     // Read file bytes from main process
-    const arrayBuffer = await window.electronAPI.readPdfFile(filePath)
+    const arrayBuffer = await pdfService.readPdfFile(filePath)
 
     // Load with pdf.js
     const pdf = await pdfjsLib.getDocument({
@@ -218,7 +219,7 @@ async function renderThumbnails(filePath: string, pageCount: number): Promise<vo
 
       const label = document.createElement('div')
       label.className = 'thumbnail-label'
-      label.textContent = `Pág. ${i + 1}`
+      label.textContent = `PÃ¡g. ${i + 1}`
 
       card.appendChild(imageDiv)
       card.appendChild(label)
@@ -239,7 +240,7 @@ async function renderThumbnails(filePath: string, pageCount: number): Promise<vo
     grid.innerHTML = `
       <div class="loading-container" style="grid-column: 1 / -1; flex-direction: column; gap: 16px;">
         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-        <p style="color: var(--error)">Error al cargar las páginas: ${message}</p>
+        <p style="color: var(--error)">Error al cargar las pÃ¡ginas: ${message}</p>
         <button class="btn-secondary" id="retry-btn">Reintentar</button>
       </div>
     `
@@ -266,9 +267,9 @@ function updatePageOrder(): void {
   // Update page info to show if reordered
   const pageInfo = document.getElementById('page-info')!
   if (isOriginalOrder) {
-    pageInfo.textContent = `${originalPageCount} páginas`
+    pageInfo.textContent = `${originalPageCount} pÃ¡ginas`
   } else {
-    pageInfo.textContent = `${originalPageCount} páginas · orden modificado`
+    pageInfo.textContent = `${originalPageCount} pÃ¡ginas Â· orden modificado`
   }
 }
 
@@ -310,19 +311,19 @@ async function handleSave(toTemp: boolean, targetView?: any): Promise<void> {
   saveBtn.innerHTML = `<div class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block"></div>`
 
   try {
-    const result = await window.electronAPI.reorderPages(currentFilePath, currentPageOrder, toTemp)
+    const result = await pdfService.reorderPages(currentFilePath, currentPageOrder, toTemp)
 
     if (result.success && result.outputPath) {
       if (toTemp && targetView) {
-        const fileInfo = await window.electronAPI.getFileInfo(result.outputPath)
+        const fileInfo = await pdfService.getFileInfo(result.outputPath)
         if (fileInfo) {
           showNotification('Redirigiendo...', 'success')
           navigateTo(targetView, { fileInfo })
         }
       } else {
-        showNotification(`PDF guardado correctamente (${result.pageCount} páginas)`, 'success')
+        showNotification(`PDF guardado correctamente (${result.pageCount} pÃ¡ginas)`, 'success')
       }
-    } else if (result.error !== 'Operación cancelada') {
+    } else if (result.error !== 'OperaciÃ³n cancelada') {
       showNotification(result.error || 'Error desconocido al guardar', 'error')
     }
   } catch (err) {
@@ -333,4 +334,6 @@ async function handleSave(toTemp: boolean, targetView?: any): Promise<void> {
     saveBtn.innerHTML = originalText
   }
 }
+
+
 

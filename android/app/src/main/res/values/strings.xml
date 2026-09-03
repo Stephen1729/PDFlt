@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">PDFlt</string>
+    <string name="title_activity_main">PDFlt</string>
+    <string name="package_name">com.stephen1729.pdflt</string>
+    <string name="custom_url_scheme">com.stephen1729.pdflt</string>
+</resources>

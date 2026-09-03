@@ -1,3 +1,4 @@
+﻿import { pdfService } from '../services/pdfService'
 import * as pdfjsLib from 'pdfjs-dist'
 import { showNotification, navigateTo } from '../router'
 import type { PdfFileInfo, CompressionLevel } from '../../../shared/types'
@@ -26,7 +27,7 @@ export function renderCompress(container: HTMLElement, payload?: any): void {
           <line x1="12" y1="22" x2="12" y2="12"></line>
         </svg>
         <h3>Comprimir PDF</h3>
-        <p>Arrastra tu PDF aquí o haz clic para seleccionar</p>
+        <p>Arrastra tu PDF aquÃ­ o haz clic para seleccionar</p>
         <button id="open-btn" class="btn-primary" style="margin-top: 1rem;">Seleccionar PDF</button>
       </div>
     </div>
@@ -48,19 +49,19 @@ export function renderCompress(container: HTMLElement, payload?: any): void {
         <div class="compression-card" data-level="extreme">
           <div class="card-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
           <h3>Fuerte</h3>
-          <p>Mínimo tamaño. Menor resolución (100 DPI). Ideal para enviar por correo o límites web.</p>
+          <p>MÃ­nimo tamaÃ±o. Menor resoluciÃ³n (100 DPI). Ideal para enviar por correo o lÃ­mites web.</p>
         </div>
 
         <div class="compression-card selected" data-level="recommended">
           <div class="card-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></div>
           <h3>Equilibrada</h3>
-          <p>Mejor relación calidad/tamaño (150 DPI). Ideal para fotos, escaneos y lectura en pantalla.</p>
+          <p>Mejor relaciÃ³n calidad/tamaÃ±o (150 DPI). Ideal para fotos, escaneos y lectura en pantalla.</p>
         </div>
 
         <div class="compression-card" data-level="basic">
           <div class="card-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/><line x1="16" y1="8" x2="2" y2="22"/><line x1="17.5" y1="15" x2="9" y2="15"/></svg></div>
           <h3>Ligera</h3>
-          <p>Sin pérdida. Mantiene vectores y texto seleccionable. Limpia metadatos y estructura.</p>
+          <p>Sin pÃ©rdida. Mantiene vectores y texto seleccionable. Limpia metadatos y estructura.</p>
         </div>
       </div>
 
@@ -77,7 +78,7 @@ export function renderCompress(container: HTMLElement, payload?: any): void {
 
       <!-- Result Section -->
       <div id="result-container" style="display: none; text-align: center; margin-bottom: 2rem; padding: 1.5rem; background: var(--bg-secondary); border-radius: 12px; border: 1px solid var(--border);">
-        <h3 style="margin-bottom: 1rem; color: var(--success);">¡Compresión Completada!</h3>
+        <h3 style="margin-bottom: 1rem; color: var(--success);">Â¡CompresiÃ³n Completada!</h3>
         <div style="display: flex; justify-content: center; gap: 2rem; margin-bottom: 1rem; font-size: 0.9rem;">
           <div>Original: <span id="result-old-size" style="font-weight: bold;"></span></div>
           <div>Comprimido: <span id="result-new-size" style="font-weight: bold;"></span></div>
@@ -145,11 +146,11 @@ function setupEventListeners(): void {
     const files = e.dataTransfer?.files
     if (files && files.length > 0) {
       const paths = Array.from(files)
-        .map(f => window.electronAPI.getFilePath(f))
+        .map(f => pdfService.getFilePath(f))
         .filter(p => p && p.toLowerCase().endsWith('.pdf'))
         
       if (paths.length > 0) {
-        const infos = await window.electronAPI.processDroppedFiles([paths[0]])
+        const infos = await pdfService.processDroppedFiles([paths[0]])
         if (infos && infos.length > 0) {
           loadPdf(infos[0])
         }
@@ -180,7 +181,7 @@ function setupEventListeners(): void {
 }
 
 async function handleOpenFile(): Promise<void> {
-  const fileInfo = await window.electronAPI.openPdfDialog()
+  const fileInfo = await pdfService.openPdfDialog()
   if (fileInfo) {
     loadPdf(fileInfo)
   }
@@ -199,7 +200,7 @@ function loadPdf(fileInfo: PdfFileInfo): void {
   ;(document.getElementById('compress-btn') as HTMLButtonElement).disabled = false
   
   document.getElementById('file-name')!.textContent = fileInfo.fileName
-  document.getElementById('file-pages')!.textContent = `${fileInfo.pageCount} páginas`
+  document.getElementById('file-pages')!.textContent = `${fileInfo.pageCount} pÃ¡ginas`
   document.getElementById('file-size')!.textContent = formatBytes(fileInfo.fileSizeBytes)
 
   document.getElementById('drop-zone')!.style.display = 'none'
@@ -229,13 +230,13 @@ async function handleCompress(toTemp: boolean): Promise<void> {
       progressText.textContent = 'Optimizando estructura...'
       progressBar.style.width = '50%'
       // Call main process directly for structural compression
-      const result = await window.electronAPI.compressStructural(currentFileInfo.filePath, toTemp)
+      const result = await pdfService.compressStructural(currentFileInfo.filePath, toTemp)
       progressBar.style.width = '100%'
       progressPercent.textContent = '100%'
       await showResult(result)
     } else {
       // Canvas based compression
-      const arrayBuffer = await window.electronAPI.readPdfFile(currentFileInfo.filePath)
+      const arrayBuffer = await pdfService.readPdfFile(currentFileInfo.filePath)
       const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise
       const numPages = pdf.numPages
       
@@ -247,7 +248,7 @@ async function handleCompress(toTemp: boolean): Promise<void> {
       const quality = selectedLevel === 'extreme' ? 0.6 : 0.8
 
       for (let i = 1; i <= numPages; i++) {
-        progressText.textContent = `Renderizando página ${i} de ${numPages}...`
+        progressText.textContent = `Renderizando pÃ¡gina ${i} de ${numPages}...`
         const percent = Math.round(((i - 1) / numPages) * 100)
         progressBar.style.width = `${percent}%`
         progressPercent.textContent = `${percent}%`
@@ -276,7 +277,7 @@ async function handleCompress(toTemp: boolean): Promise<void> {
       progressBar.style.width = '95%'
       progressPercent.textContent = '95%'
 
-      const result = await window.electronAPI.assembleCompressedPdf(imagesBase64, dimensions, toTemp)
+      const result = await pdfService.assembleCompressedPdf(imagesBase64, dimensions, toTemp)
       progressBar.style.width = '100%'
       progressPercent.textContent = '100%'
       
@@ -299,7 +300,7 @@ async function showResult(result: any) {
     lastOperationResult = result
     
     // Get new file info to compare sizes
-    const fileInfo = await window.electronAPI.getFileInfo(result.outputPath)
+    const fileInfo = await pdfService.getFileInfo(result.outputPath)
     
     if (fileInfo && currentFileInfo) {
       const oldSize = currentFileInfo.fileSizeBytes
@@ -337,7 +338,7 @@ async function handleSaveFinal(chaining: boolean, targetView?: string) {
   if (!lastOperationResult || !lastOperationResult.outputPath) return
   
   if (chaining && targetView) {
-    const fileInfo = await window.electronAPI.getFileInfo(lastOperationResult.outputPath)
+    const fileInfo = await pdfService.getFileInfo(lastOperationResult.outputPath)
     if (fileInfo) {
       showNotification('Redirigiendo...', 'success')
       navigateTo(targetView as any, { fileInfo })
@@ -350,10 +351,10 @@ async function handleSaveFinal(chaining: boolean, targetView?: string) {
     
     try {
       const defaultName = currentFileInfo?.fileName.replace(/\.pdf$/i, '_comprimido.pdf') || 'comprimido.pdf'
-      const savePath = await window.electronAPI.saveFileDialog(defaultName)
+      const savePath = await pdfService.saveFileDialog(defaultName)
       
       if (savePath) {
-        const copied = await window.electronAPI.copyFile(lastOperationResult.outputPath, savePath)
+        const copied = await pdfService.copyFile(lastOperationResult.outputPath, savePath)
         if (copied) {
           showNotification('Guardado exitosamente', 'success')
         } else {
@@ -368,3 +369,5 @@ async function handleSaveFinal(chaining: boolean, targetView?: string) {
     }
   }
 }
+
+

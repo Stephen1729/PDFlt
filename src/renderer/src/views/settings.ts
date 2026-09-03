@@ -1,11 +1,12 @@
+﻿import { pdfService } from '../services/pdfService'
 import { showNotification } from '../router'
 
 export async function renderSettings(container: HTMLElement): Promise<void> {
-  const version = await window.electronAPI.getAppVersion()
+  const version = await pdfService.getAppVersion()
 
   container.innerHTML = `
     <div class="view-header">
-      <h2>Configuración</h2>
+      <h2>ConfiguraciÃ³n</h2>
     </div>
     
     <div style="padding: 24px; max-width: 600px;">
@@ -16,7 +17,7 @@ export async function renderSettings(container: HTMLElement): Promise<void> {
           </svg>
           PDFlt
         </h3>
-        <p style="color: var(--text-muted); margin-bottom: 24px;">Versión instalada: <strong id="version-text">v${version}</strong></p>
+        <p style="color: var(--text-muted); margin-bottom: 24px;">VersiÃ³n instalada: <strong id="version-text">v${version}</strong></p>
         
         <div id="update-status" style="margin-bottom: 16px; font-size: 0.95rem; display: none;"></div>
         
@@ -32,7 +33,7 @@ export async function renderSettings(container: HTMLElement): Promise<void> {
 
         <div style="display: flex; gap: 12px;">
           <button id="check-update-btn" class="btn-primary">Buscar Actualizaciones</button>
-          <button id="download-update-btn" class="btn-primary" style="display: none;">Descargar Actualización</button>
+          <button id="download-update-btn" class="btn-primary" style="display: none;">Descargar ActualizaciÃ³n</button>
           <button id="install-update-btn" class="btn-secondary" style="display: none; border-color: var(--success); color: var(--success);">Reiniciar e Instalar</button>
         </div>
       </div>
@@ -56,7 +57,7 @@ export async function renderSettings(container: HTMLElement): Promise<void> {
   }
 
   // Bind IPC listener
-  cleanupListener = window.electronAPI.onUpdateEvent((event) => {
+  cleanupListener = pdfService.onUpdateEvent((event) => {
     switch (event.type) {
       case 'checking':
         checkBtn.disabled = true
@@ -66,12 +67,12 @@ export async function renderSettings(container: HTMLElement): Promise<void> {
       case 'available':
         checkBtn.style.display = 'none'
         downloadBtn.style.display = 'block'
-        setStatus(`¡Nueva versión disponible! (v${event.data.version})`, 'var(--primary)')
+        setStatus(`Â¡Nueva versiÃ³n disponible! (v${event.data.version})`, 'var(--primary)')
         break
       case 'not-available':
         checkBtn.disabled = false
         checkBtn.textContent = 'Buscar Actualizaciones'
-        setStatus('Ya tienes la última versión instalada.', 'var(--success)')
+        setStatus('Ya tienes la Ãºltima versiÃ³n instalada.', 'var(--success)')
         break
       case 'progress':
         downloadBtn.disabled = true
@@ -85,7 +86,7 @@ export async function renderSettings(container: HTMLElement): Promise<void> {
         downloadBtn.style.display = 'none'
         progressContainer.style.display = 'none'
         installBtn.style.display = 'block'
-        setStatus('¡Actualización descargada y lista para instalar!', 'var(--success)')
+        setStatus('Â¡ActualizaciÃ³n descargada y lista para instalar!', 'var(--success)')
         break
       case 'error':
         checkBtn.disabled = false
@@ -93,22 +94,22 @@ export async function renderSettings(container: HTMLElement): Promise<void> {
         downloadBtn.style.display = 'none'
         checkBtn.textContent = 'Reintentar'
         setStatus(`Error: ${event.data}`, 'var(--error)')
-        showNotification('Ocurrió un error al actualizar', 'error')
+        showNotification('OcurriÃ³ un error al actualizar', 'error')
         break
     }
   })
 
   // Button handlers
   checkBtn.addEventListener('click', () => {
-    window.electronAPI.checkForUpdates()
+    pdfService.checkForUpdates()
   })
 
   downloadBtn.addEventListener('click', () => {
-    window.electronAPI.downloadUpdate()
+    pdfService.downloadUpdate()
   })
 
   installBtn.addEventListener('click', () => {
-    window.electronAPI.installUpdate()
+    pdfService.installUpdate()
   })
 
   // Cleanup on unmount
@@ -120,3 +121,4 @@ export async function renderSettings(container: HTMLElement): Promise<void> {
   })
   observer.observe(document.body, { childList: true, subtree: true })
 }
+
