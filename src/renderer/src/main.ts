@@ -4,7 +4,7 @@ import './styles/components.css'
 import { navigateTo, ViewName } from './router'
 
 // Setup sidebar event listeners
-document.querySelectorAll('.sidebar-nav .nav-item').forEach((item) => {
+document.querySelectorAll('.nav-item').forEach((item) => {
   item.addEventListener('click', (e) => {
     e.preventDefault()
     const view = (item as HTMLElement).dataset.view as ViewName

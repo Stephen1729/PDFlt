@@ -37,7 +37,21 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.invoke(IPC_CHANNELS.COPY_FILE, source, destination),
 
   saveFileDialog: (defaultName: string) =>
-    ipcRenderer.invoke(IPC_CHANNELS.SAVE_DIALOG, defaultName)
+    ipcRenderer.invoke(IPC_CHANNELS.SAVE_DIALOG, defaultName),
+
+  getAppVersion: () => ipcRenderer.invoke(IPC_CHANNELS.GET_APP_VERSION),
+  
+  checkForUpdates: () => ipcRenderer.invoke(IPC_CHANNELS.CHECK_UPDATES),
+  
+  downloadUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.DOWNLOAD_UPDATE),
+  
+  installUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.INSTALL_UPDATE),
+  
+  onUpdateEvent: (callback: (event: any) => void) => {
+    const listener = (_: any, event: any) => callback(event)
+    ipcRenderer.on(IPC_CHANNELS.UPDATE_EVENT, listener)
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.UPDATE_EVENT, listener)
+  }
 }
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI)

@@ -7,6 +7,8 @@ import { reorderPdfPages } from './pdf/reorder'
 import { mergePdfs } from './pdf/merge'
 import { extractPages } from './pdf/extract'
 import { compressStructural, assembleCompressedPdf } from './pdf/compress'
+import { autoUpdater } from 'electron-updater'
+import { copyFile } from 'fs/promises'
 
 export function registerIpcHandlers(): void {
   // ── Open file dialog → validate PDF → return info ──
@@ -258,4 +260,46 @@ export function registerIpcHandlers(): void {
       }
     }
   )
+  // ── Updater Handlers ──
+  ipcMain.handle(IPC_CHANNELS.GET_APP_VERSION, () => {
+    return app.getVersion()
+  })
+
+  // Disable auto-download so the user controls when to download
+  autoUpdater.autoDownload = false
+
+  // Pipe updater events to the renderer
+  const sendUpdateEvent = (event: string, data?: any) => {
+    const windows = BrowserWindow.getAllWindows()
+    if (windows.length > 0) {
+      windows[0].webContents.send(IPC_CHANNELS.UPDATE_EVENT, { type: event, data })
+    }
+  }
+
+  autoUpdater.on('checking-for-update', () => sendUpdateEvent('checking'))
+  autoUpdater.on('update-available', (info) => sendUpdateEvent('available', info))
+  autoUpdater.on('update-not-available', (info) => sendUpdateEvent('not-available', info))
+  autoUpdater.on('error', (err) => sendUpdateEvent('error', err.message))
+  autoUpdater.on('download-progress', (progressObj) => sendUpdateEvent('progress', progressObj))
+  autoUpdater.on('update-downloaded', (info) => sendUpdateEvent('downloaded', info))
+
+  ipcMain.handle(IPC_CHANNELS.CHECK_UPDATES, async () => {
+    try {
+      await autoUpdater.checkForUpdates()
+    } catch (error: any) {
+      sendUpdateEvent('error', error.message)
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.DOWNLOAD_UPDATE, async () => {
+    try {
+      await autoUpdater.downloadUpdate()
+    } catch (error: any) {
+      sendUpdateEvent('error', error.message)
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.INSTALL_UPDATE, () => {
+    autoUpdater.quitAndInstall(false, true)
+  })
 }

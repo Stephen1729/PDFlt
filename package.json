@@ -11,6 +11,7 @@
     "package:mac": "electron-vite build && electron-builder --mac"
   },
   "dependencies": {
+    "electron-updater": "^6.8.9",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^4.9.155",
     "sortablejs": "^1.15.6"
@@ -23,4 +24,3 @@
     "typescript": "^5.6.0"
   }
 }
-

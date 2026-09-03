@@ -25,4 +25,8 @@ linux:
   target:
     - AppImage
   artifactName: PDFlt-${version}.${ext}
+publish:
+  provider: github
+  owner: Stephen1729
+  repo: PDFLn
 

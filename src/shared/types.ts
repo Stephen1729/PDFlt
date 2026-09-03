@@ -36,7 +36,12 @@ export const IPC_CHANNELS = {
   COMPRESS_STRUCTURAL: 'pdf:compress-structural',
   ASSEMBLE_COMPRESSED_PDF: 'pdf:assemble-compressed',
   COPY_FILE: 'pdf:copy-file',
-  SAVE_DIALOG: 'dialog:save-file'
+  SAVE_DIALOG: 'dialog:save-file',
+  GET_APP_VERSION: 'app:get-version',
+  CHECK_UPDATES: 'app:check-updates',
+  DOWNLOAD_UPDATE: 'app:download-update',
+  INSTALL_UPDATE: 'app:install-update',
+  UPDATE_EVENT: 'app:update-event'
 } as const
 
 export interface ElectronAPI {
@@ -53,6 +58,12 @@ export interface ElectronAPI {
   assembleCompressedPdf: (imagesBase64: string[], dimensions: PageDimension[], toTemp?: boolean) => Promise<OperationResult>
   copyFile: (source: string, destination: string) => Promise<boolean>
   saveFileDialog: (defaultName: string) => Promise<string | null>
+  
+  getAppVersion: () => Promise<string>
+  checkForUpdates: () => Promise<void>
+  downloadUpdate: () => Promise<void>
+  installUpdate: () => Promise<void>
+  onUpdateEvent: (callback: (event: any) => void) => () => void
 }
 
 declare global {
