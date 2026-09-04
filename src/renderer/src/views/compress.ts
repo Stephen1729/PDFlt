@@ -321,7 +321,7 @@ async function showResult(result: any) {
       document.getElementById('result-container')!.style.display = 'block'
       compressBtn.style.display = 'none'
       document.getElementById('save-btn')!.style.display = 'inline-flex'
-      document.getElementById('chain-actions')!.style.display = 'flex'
+      document.getElementById('chain-actions')!.style.display = 'inline-flex'
     }
   } else {
     showNotification(result.error || 'Error al comprimir', 'error')

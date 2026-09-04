@@ -126,9 +126,17 @@ export const pdfService = {
   async readPdfFile(filePath: string): Promise<ArrayBuffer> {
     const b64 = fileCache.get(filePath)
     if (!b64) throw new Error('File not found in cache')
-    // Fast base64 to ArrayBuffer conversion using fetch
-    const response = await fetch(`data:application/pdf;base64,${b64}`)
-    return await response.arrayBuffer()
+    
+    // We cannot use fetch(data:application/pdf;base64) because Chrome has URL length limits
+    // which throws "Failed to fetch" on large files.
+    // atob is standard and fast enough for V8.
+    const binaryString = window.atob(b64)
+    const len = binaryString.length
+    const bytes = new Uint8Array(len)
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i)
+    }
+    return bytes.buffer
   },
 
   async mergePdfs(filePaths: string[], toTemp?: boolean): Promise<OperationResult> {
