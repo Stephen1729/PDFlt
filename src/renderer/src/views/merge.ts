@@ -181,6 +181,8 @@ function renderFileList(): void {
   // Initialize SortableJS
   Sortable.create(fileList, {
     animation: 150,
+    delay: 150,
+    delayOnTouchOnly: true,
     ghostClass: 'thumbnail-ghost',
     chosenClass: 'thumbnail-chosen',
     dragClass: 'thumbnail-drag',
@@ -225,7 +227,7 @@ async function handleMerge(toTemp: boolean, targetView?: any): Promise<void> {
         selectedFiles = []
         renderFileList()
       }
-    } else if (result.error !== 'OperaciÃ³n cancelada') {
+    } else if (result.error !== 'Operación cancelada') {
       showNotification(result.error || 'Error desconocido al unir', 'error')
     }
   } catch (err) {

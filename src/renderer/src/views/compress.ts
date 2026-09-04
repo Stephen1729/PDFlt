@@ -247,7 +247,7 @@ async function handleCompress(toTemp: boolean): Promise<void> {
       const quality = selectedLevel === 'extreme' ? 0.6 : 0.8
 
       for (let i = 1; i <= numPages; i++) {
-        progressText.textContent = `Renderizando pÃ¡gina ${i} de ${numPages}...`
+        progressText.textContent = `Renderizando página ${i} de ${numPages}...`
         const percent = Math.round(((i - 1) / numPages) * 100)
         progressBar.style.width = `${percent}%`
         progressPercent.textContent = `${percent}%`

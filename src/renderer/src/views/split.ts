@@ -49,7 +49,7 @@ export function renderSplit(container: HTMLElement, payload?: any): void {
       <span id="selection-info" class="page-info">0 seleccionadas</span>
       <div class="action-buttons">
         <button id="select-all-btn" class="btn-secondary">Seleccionar todas</button>
-        <button id="invert-btn" class="btn-secondary">Invertir selecciÃ³n</button>
+        <button id="invert-btn" class="btn-secondary">Invertir selección</button>
         <button id="extract-btn" class="btn-primary" disabled>
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -186,7 +186,7 @@ async function renderThumbnails(filePath: string, pageCount: number): Promise<vo
 
       const label = document.createElement('div')
       label.className = 'thumbnail-label'
-      label.textContent = `PÃ¡g. ${i + 1}`
+      label.textContent = `Pág. ${i + 1}`
 
       card.appendChild(imageDiv)
       card.appendChild(label)
@@ -246,7 +246,7 @@ function updateSelectionInfo(): void {
         <polyline points="7 10 12 15 17 10"></polyline>
         <line x1="12" y1="15" x2="12" y2="3"></line>
       </svg>
-      Guardar PDF (${count} pÃ¡g)
+      Guardar PDF (${count} pág)
     `
   }
 }
@@ -316,7 +316,7 @@ async function handleExtract(toTemp: boolean, targetView?: any): Promise<void> {
       } else {
         showNotification(`Extraído exitosamente (${result.pageCount} páginas)`, 'success')
       }
-    } else if (result.error !== 'OperaciÃ³n cancelada') {
+    } else if (result.error !== 'Operación cancelada') {
       showNotification(result.error || 'Error desconocido', 'error')
     }
   } catch (err) {

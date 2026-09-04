@@ -148,7 +148,7 @@ async function loadPdf(fileInfo: PdfFileInfo): Promise<void> {
   // Show encrypted warning
   if (fileInfo.isEncrypted) {
     showNotification(
-      'Este PDF tiene restricciones de seguridad. El resultado podrÃ­a no preservar todas las protecciones.',
+      'Este PDF tiene restricciones de seguridad. El resultado podría no preservar todas las protecciones.',
       'warning'
     )
   }
@@ -217,7 +217,7 @@ async function renderThumbnails(filePath: string, pageCount: number): Promise<vo
 
       const label = document.createElement('div')
       label.className = 'thumbnail-label'
-      label.textContent = `PÃ¡g. ${i + 1}`
+      label.textContent = `Pág. ${i + 1}`
 
       card.appendChild(imageDiv)
       card.appendChild(label)
@@ -226,11 +226,12 @@ async function renderThumbnails(filePath: string, pageCount: number): Promise<vo
 
     // Initialize SortableJS for drag-and-drop reordering
     Sortable.create(grid, {
-      animation: 200,
+      animation: 150,
+      delay: 150,
+      delayOnTouchOnly: true,
       ghostClass: 'thumbnail-ghost',
       chosenClass: 'thumbnail-chosen',
       dragClass: 'thumbnail-drag',
-      easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
       onEnd: updatePageOrder
     })
   } catch (err) {
@@ -321,7 +322,7 @@ async function handleSave(toTemp: boolean, targetView?: any): Promise<void> {
       } else {
         showNotification(`PDF guardado correctamente (${result.pageCount} páginas)`, 'success')
       }
-    } else if (result.error !== 'OperaciÃ³n cancelada') {
+    } else if (result.error !== 'Operación cancelada') {
       showNotification(result.error || 'Error desconocido al guardar', 'error')
     }
   } catch (err) {
