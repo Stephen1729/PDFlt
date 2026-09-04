@@ -55,7 +55,7 @@ export function renderReorder(container: HTMLElement, payload?: any): void {
 
     <!-- Action bar -->
     <div id="action-bar" class="action-bar" style="display:none">
-      <span id="page-info" class="page-info">0 pÃ¡ginas</span>
+      <span id="page-info" class="page-info">0 páginas</span>
       <div class="action-buttons">
         <button id="reset-btn" class="btn-secondary">Restablecer orden</button>
         <button id="save-btn" class="btn-primary">
@@ -159,7 +159,7 @@ async function loadPdf(fileInfo: PdfFileInfo): Promise<void> {
   document.getElementById('action-bar')!.style.display = 'flex'
 
   // Update page info
-  document.getElementById('page-info')!.textContent = `${fileInfo.pageCount} pÃ¡ginas`
+  document.getElementById('page-info')!.textContent = `${fileInfo.pageCount} páginas`
 
   // Render thumbnails
   await renderThumbnails(fileInfo.filePath, fileInfo.pageCount)
@@ -172,7 +172,7 @@ async function renderThumbnails(filePath: string, pageCount: number): Promise<vo
   grid.innerHTML = `
     <div class="loading-container" style="grid-column: 1 / -1">
       <div class="spinner"></div>
-      <span class="loading-text">Cargando pÃ¡ginas...</span>
+      <span class="loading-text">Cargando páginas...</span>
     </div>
   `
 
@@ -238,7 +238,7 @@ async function renderThumbnails(filePath: string, pageCount: number): Promise<vo
     grid.innerHTML = `
       <div class="loading-container" style="grid-column: 1 / -1; flex-direction: column; gap: 16px;">
         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-        <p style="color: var(--error)">Error al cargar las pÃ¡ginas: ${message}</p>
+        <p style="color: var(--error)">Error al cargar las páginas: ${message}</p>
         <button class="btn-secondary" id="retry-btn">Reintentar</button>
       </div>
     `
@@ -265,9 +265,9 @@ function updatePageOrder(): void {
   // Update page info to show if reordered
   const pageInfo = document.getElementById('page-info')!
   if (isOriginalOrder) {
-    pageInfo.textContent = `${originalPageCount} pÃ¡ginas`
+    pageInfo.textContent = `${originalPageCount} páginas`
   } else {
-    pageInfo.textContent = `${originalPageCount} pÃ¡ginas Â· orden modificado`
+    pageInfo.textContent = `${originalPageCount} páginas · orden modificado`
   }
 }
 
@@ -319,7 +319,7 @@ async function handleSave(toTemp: boolean, targetView?: any): Promise<void> {
           navigateTo(targetView, { fileInfo })
         }
       } else {
-        showNotification(`PDF guardado correctamente (${result.pageCount} pÃ¡ginas)`, 'success')
+        showNotification(`PDF guardado correctamente (${result.pageCount} páginas)`, 'success')
       }
     } else if (result.error !== 'OperaciÃ³n cancelada') {
       showNotification(result.error || 'Error desconocido al guardar', 'error')

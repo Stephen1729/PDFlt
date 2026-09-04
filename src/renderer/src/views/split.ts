@@ -150,7 +150,7 @@ async function renderThumbnails(filePath: string, pageCount: number): Promise<vo
   grid.innerHTML = `
     <div class="loading-container" style="grid-column: 1 / -1">
       <div class="spinner"></div>
-      <span class="loading-text">Cargando pÃ¡ginas...</span>
+      <span class="loading-text">Cargando páginas...</span>
     </div>
   `
 
@@ -210,7 +210,7 @@ async function renderThumbnails(filePath: string, pageCount: number): Promise<vo
     grid.innerHTML = `
       <div class="loading-container" style="grid-column: 1 / -1; flex-direction: column; gap: 16px;">
         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-        <p style="color: var(--error)">Error al cargar las pÃ¡ginas: ${message}</p>
+        <p style="color: var(--error)">Error al cargar las páginas: ${message}</p>
         <button class="btn-secondary" id="retry-btn">Reintentar</button>
       </div>
     `
@@ -225,7 +225,7 @@ function updateSelectionInfo(): void {
   const chainBtns = document.querySelectorAll('.chain-actions button')
 
   if (count === 0) {
-    infoSpan.textContent = 'Selecciona las pÃ¡ginas a extraer'
+    infoSpan.textContent = 'Selecciona las páginas a extraer'
     btn.disabled = true
     chainBtns.forEach(b => (b as HTMLButtonElement).disabled = true)
     btn.innerHTML = `
@@ -314,7 +314,7 @@ async function handleExtract(toTemp: boolean, targetView?: any): Promise<void> {
           navigateTo(targetView, { fileInfo })
         }
       } else {
-        showNotification(`ExtraÃ­do exitosamente (${result.pageCount} pÃ¡ginas)`, 'success')
+        showNotification(`Extraído exitosamente (${result.pageCount} páginas)`, 'success')
       }
     } else if (result.error !== 'OperaciÃ³n cancelada') {
       showNotification(result.error || 'Error desconocido', 'error')

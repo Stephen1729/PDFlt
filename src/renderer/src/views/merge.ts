@@ -157,7 +157,7 @@ function renderFileList(): void {
       </div>
       <div style="flex: 1; overflow: hidden;">
         <div style="font-weight: 500; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;">${file.fileName}</div>
-        <div style="font-size: 0.8rem; color: var(--text-muted);">${file.pageCount} pÃ¡ginas</div>
+        <div style="font-size: 0.8rem; color: var(--text-muted);">${file.pageCount} páginas</div>
       </div>
       <button class="remove-btn btn-icon" data-idx="${index}" title="Eliminar" style="margin-left: 1rem; color: var(--error);">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
@@ -166,7 +166,7 @@ function renderFileList(): void {
     fileList.appendChild(item)
   })
 
-  mergeInfo.textContent = `${selectedFiles.length} archivos Â· ${totalPages} pÃ¡ginas totales`
+  mergeInfo.textContent = `${selectedFiles.length} archivos · ${totalPages} páginas totales`
 
   // Bind remove buttons
   fileList.querySelectorAll('.remove-btn').forEach((btn) => {
@@ -221,7 +221,7 @@ async function handleMerge(toTemp: boolean, targetView?: any): Promise<void> {
           navigateTo(targetView, { fileInfo })
         }
       } else {
-        showNotification(`PDF guardado correctamente (${result.pageCount} pÃ¡ginas)`, 'success')
+        showNotification(`PDF guardado correctamente (${result.pageCount} páginas)`, 'success')
         selectedFiles = []
         renderFileList()
       }

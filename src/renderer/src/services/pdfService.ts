@@ -81,14 +81,15 @@ export const pdfService = {
     for (const file of files) {
       if (!file.name.toLowerCase().endsWith('.pdf')) continue
       
-      const arrayBuffer = await file.arrayBuffer()
-      const uint8Array = new Uint8Array(arrayBuffer)
-      // Convert to base64 for cache
-      let binary = ''
-      for (let i = 0; i < uint8Array.byteLength; i++) {
-        binary += String.fromCharCode(uint8Array[i])
-      }
-      const b64 = window.btoa(binary)
+      const b64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => {
+          const result = reader.result as string
+          resolve(result.split(',')[1])
+        }
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
       
       const doc = await PDFDocument.load(b64, { ignoreEncryption: true })
       fileCache.set(file.name, b64)
@@ -125,14 +126,9 @@ export const pdfService = {
   async readPdfFile(filePath: string): Promise<ArrayBuffer> {
     const b64 = fileCache.get(filePath)
     if (!b64) throw new Error('File not found in cache')
-    // Convert base64 to ArrayBuffer
-    const binaryString = window.atob(b64)
-    const len = binaryString.length
-    const bytes = new Uint8Array(len)
-    for (let i = 0; i < len; i++) {
-      bytes[i] = binaryString.charCodeAt(i)
-    }
-    return bytes.buffer
+    // Fast base64 to ArrayBuffer conversion using fetch
+    const response = await fetch(`data:application/pdf;base64,${b64}`)
+    return await response.arrayBuffer()
   },
 
   async mergePdfs(filePaths: string[], toTemp?: boolean): Promise<OperationResult> {

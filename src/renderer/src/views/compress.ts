@@ -32,7 +32,7 @@ export function renderCompress(container: HTMLElement, payload?: any): void {
       </div>
     </div>
 
-    <div id="compress-workspace" style="display:none; width: 100%; max-width: 800px; margin: 0 auto; padding: 2rem;">
+    <div id="compress-workspace" style="display:none; width: 100%; max-width: 800px; margin: 0 auto; padding: 2rem; overflow-y: auto; flex: 1;">
       
       <!-- Info Header -->
       <div class="file-info-header" style="text-align: center; margin-bottom: 2rem;">
@@ -78,7 +78,7 @@ export function renderCompress(container: HTMLElement, payload?: any): void {
 
       <!-- Result Section -->
       <div id="result-container" style="display: none; text-align: center; margin-bottom: 2rem; padding: 1.5rem; background: var(--bg-secondary); border-radius: 12px; border: 1px solid var(--border);">
-        <h3 style="margin-bottom: 1rem; color: var(--success);">Â¡CompresiÃ³n Completada!</h3>
+        <h3 style="margin-bottom: 1rem; color: var(--success);">¡Compresión Completada!</h3>
         <div style="display: flex; justify-content: center; gap: 2rem; margin-bottom: 1rem; font-size: 0.9rem;">
           <div>Original: <span id="result-old-size" style="font-weight: bold;"></span></div>
           <div>Comprimido: <span id="result-new-size" style="font-weight: bold;"></span></div>
@@ -199,7 +199,7 @@ function loadPdf(fileInfo: PdfFileInfo): void {
   ;(document.getElementById('compress-btn') as HTMLButtonElement).disabled = false
   
   document.getElementById('file-name')!.textContent = fileInfo.fileName
-  document.getElementById('file-pages')!.textContent = `${fileInfo.pageCount} pÃ¡ginas`
+  document.getElementById('file-pages')!.textContent = `${fileInfo.pageCount} páginas`
   document.getElementById('file-size')!.textContent = formatBytes(fileInfo.fileSizeBytes)
 
   document.getElementById('drop-zone')!.style.display = 'none'
