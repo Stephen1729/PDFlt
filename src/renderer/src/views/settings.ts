@@ -1,5 +1,5 @@
 export async function renderSettings(container: HTMLElement): Promise<void> {
-  const version = '1.0.0'
+  const version = '1.1.0'
 
   container.innerHTML = `
     <div class="view-header" style="justify-content: center;">
