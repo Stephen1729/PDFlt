@@ -200,6 +200,12 @@ async function handleMerge(toTemp: boolean, targetView?: any): Promise<void> {
     return
   }
 
+  let fileName: string | null = 'PDFlt_Unido.pdf'
+  if (!toTemp) {
+    fileName = await pdfService.saveFileDialog('PDFlt_Unido.pdf', 'Guardar PDF Unido')
+    if (!fileName) return // User cancelled
+  }
+
   const btnId = toTemp ? `merge-to-${targetView}` : 'merge-btn'
   const btn = document.getElementById(btnId) as HTMLButtonElement
   const originalText = btn.innerHTML
@@ -210,7 +216,7 @@ async function handleMerge(toTemp: boolean, targetView?: any): Promise<void> {
 
   try {
     const filePaths = selectedFiles.map(f => f.filePath)
-    const result = await pdfService.mergePdfs(filePaths, toTemp)
+    const result = await pdfService.mergePdfs(filePaths, fileName, toTemp)
 
     if (result.success && result.outputPath) {
       if (toTemp && targetView) {
@@ -220,7 +226,7 @@ async function handleMerge(toTemp: boolean, targetView?: any): Promise<void> {
           navigateTo(targetView, { fileInfo })
         }
       } else {
-        showNotification(`PDF guardado correctamente (${result.pageCount} páginas)`, 'success')
+        showNotification(`PDF guardado correctamente como ${fileName} (${result.pageCount} páginas)`, 'success')
         selectedFiles = []
         renderFileList()
       }

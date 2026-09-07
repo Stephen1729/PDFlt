@@ -9,14 +9,16 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url
 ).toString()
 
-// â”€â”€ Module state â”€â”€
+// ── Module state ──
 let currentFilePath: string | null = null
+let currentFileName: string = ''
 let totalPageCount = 0
 let selectedPages: Set<number> = new Set()
 
 export function renderSplit(container: HTMLElement, payload?: any): void {
   // Reset state
   currentFilePath = null
+  currentFileName = ''
   totalPageCount = 0
   selectedPages = new Set()
 
@@ -127,6 +129,7 @@ async function handleOpenFile(): Promise<void> {
 
 async function loadPdf(fileInfo: PdfFileInfo): Promise<void> {
   currentFilePath = fileInfo.filePath
+  currentFileName = fileInfo.fileName
   totalPageCount = fileInfo.pageCount
   selectedPages.clear()
   updateSelectionInfo()
@@ -295,6 +298,14 @@ function handleInvertSelection(): void {
 async function handleExtract(toTemp: boolean, targetView?: any): Promise<void> {
   if (!currentFilePath || selectedPages.size === 0) return
 
+  let fileName: string | null = null
+  if (!toTemp) {
+    const base = currentFileName ? currentFileName.replace(/\.pdf$/i, '') : 'documento'
+    const defaultName = `${base}_extraido.pdf`
+    fileName = await pdfService.saveFileDialog(defaultName, 'Guardar PDF Extraído')
+    if (!fileName) return // User cancelled
+  }
+
   const btnId = toTemp ? `split-to-${targetView}` : 'extract-btn'
   const btn = document.getElementById(btnId) as HTMLButtonElement
   const originalHtml = btn.innerHTML
@@ -304,7 +315,7 @@ async function handleExtract(toTemp: boolean, targetView?: any): Promise<void> {
 
   try {
     const indices = Array.from(selectedPages)
-    const result = await pdfService.extractPages(currentFilePath, indices, toTemp)
+    const result = await pdfService.extractPages(currentFilePath, indices, fileName || undefined, toTemp)
 
     if (result.success && result.outputPath) {
       if (toTemp && targetView) {
@@ -314,7 +325,7 @@ async function handleExtract(toTemp: boolean, targetView?: any): Promise<void> {
           navigateTo(targetView, { fileInfo })
         }
       } else {
-        showNotification(`Extraído exitosamente (${result.pageCount} páginas)`, 'success')
+        showNotification(`PDF guardado correctamente como ${fileName} (${result.pageCount} páginas)`, 'success')
       }
     } else if (result.error !== 'Operación cancelada') {
       showNotification(result.error || 'Error desconocido', 'error')

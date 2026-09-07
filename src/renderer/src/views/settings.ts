@@ -19,6 +19,14 @@ export async function renderSettings(container: HTMLElement): Promise<void> {
         <div style="margin-top: 16px; font-size: 0.95rem; color: var(--text-muted);">
           <p>Esta es la versión móvil offline de PDFlt. Las actualizaciones se distribuyen a través de la tienda de aplicaciones o mediante un nuevo archivo APK.</p>
         </div>
+
+        <div class="bottom-info" style="margin-top: 24px; padding: 12px 16px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 8px; justify-content: center; gap: 8px;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+          <strong>Procesado 100% local</strong> — Tus archivos nunca salen de tu dispositivo
+        </div>
       </div>
     </div>
   `

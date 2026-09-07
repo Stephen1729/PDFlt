@@ -11,8 +11,9 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url
 ).toString()
 
-// â”€â”€ Module state â”€â”€
+// ── Module state ──
 let currentFilePath: string | null = null
+let currentFileName: string = ''
 let currentPageOrder: number[] = []
 let originalPageCount = 0
 
@@ -25,6 +26,7 @@ let originalPageCount = 0
 export function renderReorder(container: HTMLElement, payload?: any): void {
   // Reset state
   currentFilePath = null
+  currentFileName = ''
   currentPageOrder = []
   originalPageCount = 0
 
@@ -138,6 +140,7 @@ async function handleOpenFile(): Promise<void> {
 
 async function loadPdf(fileInfo: PdfFileInfo): Promise<void> {
   currentFilePath = fileInfo.filePath
+  currentFileName = fileInfo.fileName
   originalPageCount = fileInfo.pageCount
   currentPageOrder = Array.from({ length: fileInfo.pageCount }, (_, i) => i)
 
@@ -299,7 +302,13 @@ function handleReset(): void {
 async function handleSave(toTemp: boolean, targetView?: any): Promise<void> {
   if (!currentFilePath) return
 
-  // Removed check for isOriginalOrder because if chaining, they might just want to pass the file through unchanged
+  let fileName: string | null = null
+  if (!toTemp) {
+    const base = currentFileName ? currentFileName.replace(/\.pdf$/i, '') : 'documento'
+    const defaultName = `${base}_reordenado.pdf`
+    fileName = await pdfService.saveFileDialog(defaultName, 'Guardar PDF Reordenado')
+    if (!fileName) return // User cancelled
+  }
 
   const btnId = toTemp ? `reorder-to-${targetView}` : 'save-btn'
   const saveBtn = document.getElementById(btnId) as HTMLButtonElement
@@ -309,7 +318,7 @@ async function handleSave(toTemp: boolean, targetView?: any): Promise<void> {
   saveBtn.innerHTML = `<div class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block"></div>`
 
   try {
-    const result = await pdfService.reorderPages(currentFilePath, currentPageOrder, toTemp)
+    const result = await pdfService.reorderPages(currentFilePath, currentPageOrder, fileName || undefined, toTemp)
 
     if (result.success && result.outputPath) {
       if (toTemp && targetView) {
@@ -319,7 +328,7 @@ async function handleSave(toTemp: boolean, targetView?: any): Promise<void> {
           navigateTo(targetView, { fileInfo })
         }
       } else {
-        showNotification(`PDF guardado correctamente (${result.pageCount} páginas)`, 'success')
+        showNotification(`PDF guardado correctamente como ${fileName} (${result.pageCount} páginas)`, 'success')
       }
     } else if (result.error !== 'Operación cancelada') {
       showNotification(result.error || 'Error desconocido al guardar', 'error')

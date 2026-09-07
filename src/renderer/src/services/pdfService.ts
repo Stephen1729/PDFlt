@@ -136,7 +136,7 @@ export const pdfService = {
     return bytes.buffer
   },
 
-  async mergePdfs(filePaths: string[], toTemp?: boolean): Promise<OperationResult> {
+  async mergePdfs(filePaths: string[], customName?: string, toTemp?: boolean): Promise<OperationResult> {
     try {
       const mergedPdf = await PDFDocument.create()
       
@@ -149,13 +149,13 @@ export const pdfService = {
       }
       
       const b64Result = await mergedPdf.saveAsBase64()
-      return await saveResult(b64Result, 'merged.pdf', toTemp, mergedPdf.getPageCount())
+      return await saveResult(b64Result, customName || 'PDFlt_unido.pdf', toTemp, mergedPdf.getPageCount())
     } catch (e: any) {
       return { success: false, error: e.message }
     }
   },
 
-  async reorderPages(filePath: string, newOrder: number[], toTemp?: boolean): Promise<OperationResult> {
+  async reorderPages(filePath: string, newOrder: number[], customName?: string, toTemp?: boolean): Promise<OperationResult> {
     try {
       const b64 = fileCache.get(filePath)
       if (!b64) throw new Error('File not found')
@@ -166,13 +166,13 @@ export const pdfService = {
       copiedPages.forEach(p => newPdf.addPage(p))
       
       const b64Result = await newPdf.saveAsBase64()
-      return await saveResult(b64Result, 'reordered.pdf', toTemp, newPdf.getPageCount())
+      return await saveResult(b64Result, customName || 'PDFlt_reordenado.pdf', toTemp, newPdf.getPageCount())
     } catch (e: any) {
       return { success: false, error: e.message }
     }
   },
 
-  async extractPages(filePath: string, selectedIndices: number[], toTemp?: boolean): Promise<OperationResult> {
+  async extractPages(filePath: string, selectedIndices: number[], customName?: string, toTemp?: boolean): Promise<OperationResult> {
     try {
       const b64 = fileCache.get(filePath)
       if (!b64) throw new Error('File not found')
@@ -183,7 +183,7 @@ export const pdfService = {
       copiedPages.forEach(p => newPdf.addPage(p))
       
       const b64Result = await newPdf.saveAsBase64()
-      return await saveResult(b64Result, 'split.pdf', toTemp, newPdf.getPageCount())
+      return await saveResult(b64Result, customName || 'PDFlt_extraido.pdf', toTemp, newPdf.getPageCount())
     } catch (e: any) {
       return { success: false, error: e.message }
     }
@@ -201,7 +201,7 @@ export const pdfService = {
       copiedPages.forEach(p => newPdf.addPage(p))
       
       const b64Result = await newPdf.saveAsBase64({ useObjectStreams: true })
-      return await saveResult(b64Result, 'compressed.pdf', toTemp, newPdf.getPageCount(), b64.length * 0.75)
+      return await saveResult(b64Result, 'PDFlt_comprimido.pdf', toTemp, newPdf.getPageCount(), b64.length * 0.75)
     } catch (e: any) {
       return { success: false, error: e.message }
     }
@@ -229,17 +229,17 @@ export const pdfService = {
       }
       
       const b64Result = await newPdf.saveAsBase64({ useObjectStreams: true })
-      return await saveResult(b64Result, 'compressed.pdf', toTemp, newPdf.getPageCount())
+      return await saveResult(b64Result, 'PDFlt_comprimido.pdf', toTemp, newPdf.getPageCount())
     } catch (e: any) {
       return { success: false, error: e.message }
     }
   },
   
-  async saveFileDialog(defaultName: string): Promise<string | null> {
-    return defaultName
+  async saveFileDialog(defaultName: string, title = 'Guardar PDF'): Promise<string | null> {
+    return await promptSaveFileName(defaultName, title)
   },
   
-  async createPdfFromImages(imagesBase64: string[], toTemp?: boolean): Promise<OperationResult> {
+  async createPdfFromImages(imagesBase64: string[], customName?: string, toTemp?: boolean): Promise<OperationResult> {
     try {
       const newPdf = await PDFDocument.create()
       
@@ -277,7 +277,7 @@ export const pdfService = {
       }
       
       const b64Result = await newPdf.saveAsBase64({ useObjectStreams: true })
-      return await saveResult(b64Result, 'escaneo.pdf', toTemp, newPdf.getPageCount())
+      return await saveResult(b64Result, customName || 'PDFlt_escaneo.pdf', toTemp, newPdf.getPageCount())
     } catch (e: any) {
       return { success: false, error: e.message }
     }
@@ -288,12 +288,27 @@ export const pdfService = {
       const b64 = fileCache.get(sourcePath)
       if (!b64) return false
       
-      await Filesystem.writeFile({
-        path: destinationPath,
-        data: b64,
-        directory: Directory.Documents
-      })
-      return true
+      const fileName = destinationPath.toLowerCase().endsWith('.pdf') ? destinationPath : `${destinationPath}.pdf`
+
+      try {
+        await Filesystem.writeFile({
+          path: fileName,
+          data: b64,
+          directory: Directory.Documents
+        })
+        fileCache.set(fileName, b64)
+        return true
+      } catch (fsErr) {
+        // Fallback for browser preview download
+        const a = document.createElement('a')
+        a.href = `data:application/pdf;base64,${b64}`
+        a.download = fileName
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        fileCache.set(fileName, b64)
+        return true
+      }
     } catch (e) {
       console.error(e)
       return false
@@ -301,8 +316,97 @@ export const pdfService = {
   }
 }
 
-async function saveResult(b64: string, defaultName: string, toTemp?: boolean, pageCount?: number, originalSize?: number): Promise<OperationResult> {
-  const fileName = toTemp ? generateTempName() : `PDFlt_${defaultName}`
+export function promptSaveFileName(defaultName: string, title = 'Guardar PDF'): Promise<string | null> {
+  return new Promise((resolve) => {
+    const initialBase = defaultName.replace(/\.pdf$/i, '').trim() || 'documento'
+
+    const overlay = document.createElement('div')
+    overlay.className = 'save-modal-overlay'
+    overlay.innerHTML = `
+      <div class="save-modal-card">
+        <div class="save-modal-header">
+          <h3>${title}</h3>
+          <button class="save-modal-close btn-icon" title="Cerrar" style="width: 32px; height: 32px; padding: 4px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="save-modal-body">
+          <label for="save-filename-input">Nombre del archivo:</label>
+          <div class="save-modal-input-group">
+            <input type="text" id="save-filename-input" value="${initialBase}" autocomplete="off" autocapitalize="none" spellcheck="false" />
+            <span class="save-modal-ext">.pdf</span>
+          </div>
+        </div>
+        <div class="save-modal-footer">
+          <button id="save-modal-cancel" class="btn-secondary">Cancelar</button>
+          <button id="save-modal-confirm" class="btn-primary">Guardar</button>
+        </div>
+      </div>
+    `
+
+    document.body.appendChild(overlay)
+
+    const input = overlay.querySelector('#save-filename-input') as HTMLInputElement
+    const confirmBtn = overlay.querySelector('#save-modal-confirm') as HTMLButtonElement
+    const cancelBtn = overlay.querySelector('#save-modal-cancel') as HTMLButtonElement
+    const closeBtn = overlay.querySelector('.save-modal-close') as HTMLButtonElement
+
+    let isClosed = false
+    const close = (result: string | null) => {
+      if (isClosed) return
+      isClosed = true
+      overlay.remove()
+      resolve(result)
+    }
+
+    const confirm = () => {
+      let val = input.value.trim()
+      val = val.replace(/[\\/:*?"<>|]/g, '').trim()
+      val = val.replace(/\.pdf$/i, '').trim()
+      if (!val) val = initialBase
+      close(`${val}.pdf`)
+    }
+
+    confirmBtn.addEventListener('click', confirm)
+    cancelBtn.addEventListener('click', () => close(null))
+    closeBtn.addEventListener('click', () => close(null))
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) close(null)
+    })
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        confirm()
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        close(null)
+      }
+    })
+
+    setTimeout(() => {
+      input.focus()
+      input.select()
+    }, 50)
+  })
+}
+
+async function saveResult(
+  b64: string,
+  defaultName: string,
+  toTemp?: boolean,
+  pageCount?: number,
+  originalSize?: number
+): Promise<OperationResult> {
+  const fileName = toTemp
+    ? generateTempName()
+    : defaultName.toLowerCase().endsWith('.pdf')
+      ? defaultName
+      : `${defaultName}.pdf`
   
   if (toTemp) {
     // Save to cache instead of filesystem

@@ -49,8 +49,8 @@ function renderCurrentStage(container: HTMLElement): void {
 
 function renderDropStage(container: HTMLElement): void {
   container.innerHTML = `
+    <input type="file" id="image-file-input" accept="image/*" multiple style="display:none" />
     <div id="drop-zone" class="drop-zone">
-      <input type="file" id="image-file-input" accept="image/jpeg,image/png,image/webp,image/jpg" multiple style="display:none" />
       <div class="drop-zone-content">
         <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
@@ -65,7 +65,15 @@ function renderDropStage(container: HTMLElement): void {
   const dropZone = document.getElementById('drop-zone')!
   const fileInput = document.getElementById('image-file-input') as HTMLInputElement
 
-  dropZone.addEventListener('click', () => fileInput.click())
+  dropZone.addEventListener('click', (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    fileInput.click()
+  })
+
+  fileInput.addEventListener('click', (e) => {
+    e.stopPropagation()
+  })
 
   fileInput.addEventListener('change', async (e) => {
     const files = (e.target as HTMLInputElement).files
@@ -88,7 +96,9 @@ function renderDropStage(container: HTMLElement): void {
     dropZone.classList.remove('dragover')
     const files = e.dataTransfer?.files
     if (files && files.length > 0) {
-      const imageFiles = Array.from(files).filter((f) => f.type.startsWith('image/'))
+      const imageFiles = Array.from(files).filter(
+        (f) => f.type.startsWith('image/') || /\.(jpe?g|png|webp|bmp|gif|heic|heif)$/i.test(f.name)
+      )
       if (imageFiles.length > 0) {
         await loadInitialImages(imageFiles, container)
       } else {
@@ -109,8 +119,6 @@ async function loadInitialImages(files: File[], container: HTMLElement): Promise
       filter: 'raw',
       crop: { x: 0, y: 0, width: 1, height: 1 }
     }
-    // Process initial
-    page.processedDataUrl = await processPageImage(page)
     scannedPages.push(page)
   }
 
@@ -207,7 +215,7 @@ function renderEditStage(container: HTMLElement): void {
           </button>
           
           <button id="go-to-cascade-btn" class="btn-primary" style="padding: 8px 16px; font-size: 0.9rem;">
-            Continuar (Etapa 2) ✓
+            Continuar
           </button>
 
           <button id="next-page-btn" class="btn-secondary" ${currentEditIndex === scannedPages.length - 1 ? 'disabled' : ''} style="padding: 8px 14px; font-size: 0.85rem;">
@@ -222,8 +230,58 @@ function renderEditStage(container: HTMLElement): void {
 }
 
 function setupEditStageListeners(container: HTMLElement, currentPage: ScannedPage): void {
+  const img = document.getElementById('editor-preview-img') as HTMLImageElement
+  const viewport = container.querySelector('.scan-editor-viewport') as HTMLElement
+  const wrapper = document.getElementById('editor-image-wrapper') as HTMLElement
+
+  function adjustImageBounds() {
+    if (!viewport || !img || !wrapper) return
+    const nw = img.naturalWidth
+    const nh = img.naturalHeight
+    if (!nw || !nh) return
+
+    // Available inner area inside viewport (padding 24px + 6px safety margin for handles)
+    const pad = 24
+    const availW = Math.max(60, viewport.clientWidth - pad * 2)
+    const availH = Math.max(60, viewport.clientHeight - pad * 2)
+
+    const aspect = nw / nh
+    let renderW = availW
+    let renderH = Math.round(renderW / aspect)
+
+    if (renderH > availH) {
+      renderH = availH
+      renderW = Math.round(renderH * aspect)
+    }
+
+    wrapper.style.width = `${renderW}px`
+    wrapper.style.height = `${renderH}px`
+    img.style.width = `${renderW}px`
+    img.style.height = `${renderH}px`
+    img.style.maxWidth = 'none'
+    img.style.maxHeight = 'none'
+  }
+
+  if (img) {
+    if (img.complete && img.naturalWidth > 0) {
+      adjustImageBounds()
+    } else {
+      img.onload = () => adjustImageBounds()
+    }
+  }
+
+  const resizeObserver = new ResizeObserver(() => {
+    adjustImageBounds()
+  })
+  if (viewport) {
+    resizeObserver.observe(viewport)
+  }
+  window.addEventListener('resize', adjustImageBounds, { passive: true })
+
   // Cancel
   document.getElementById('cancel-edit-btn')?.addEventListener('click', () => {
+    resizeObserver.disconnect()
+    window.removeEventListener('resize', adjustImageBounds)
     scannedPages = []
     currentStage = 'drop'
     renderCurrentStage(container)
@@ -231,6 +289,8 @@ function setupEditStageListeners(container: HTMLElement, currentPage: ScannedPag
 
   // Delete current photo
   document.getElementById('delete-current-btn')?.addEventListener('click', () => {
+    resizeObserver.disconnect()
+    window.removeEventListener('resize', adjustImageBounds)
     scannedPages.splice(currentEditIndex, 1)
     if (scannedPages.length === 0) {
       currentStage = 'drop'
@@ -243,10 +303,13 @@ function setupEditStageListeners(container: HTMLElement, currentPage: ScannedPag
 
   // Rotate
   document.getElementById('rotate-btn')?.addEventListener('click', async () => {
+    resizeObserver.disconnect()
+    window.removeEventListener('resize', adjustImageBounds)
     currentPage.rotation = (currentPage.rotation + 90) % 360
+    currentPage.crop = { x: 0, y: 0, width: 1, height: 1 }
+    isCropMode = false
     currentPage.processedDataUrl = await processPageImage(currentPage)
-    const img = document.getElementById('editor-preview-img') as HTMLImageElement
-    if (img) img.src = currentPage.processedDataUrl
+    renderEditStage(container)
   })
 
   // Crop toggle
@@ -255,10 +318,25 @@ function setupEditStageListeners(container: HTMLElement, currentPage: ScannedPag
   cropBtn?.addEventListener('click', async () => {
     if (!isCropMode) {
       isCropMode = true
+      // Show full uncropped photo while editing crop
+      const fullUrl = await processPageImage({
+        ...currentPage,
+        crop: { x: 0, y: 0, width: 1, height: 1 }
+      })
+      if (img) {
+        img.onload = () => {
+          adjustImageBounds()
+          setupCropHandles(currentPage)
+        }
+        img.src = fullUrl
+      }
       if (cropBox) cropBox.style.display = 'block'
       cropBtn.textContent = 'Aplicar recorte'
       cropBtn.classList.add('active')
+      setupCropHandles(currentPage)
     } else {
+      resizeObserver.disconnect()
+      window.removeEventListener('resize', adjustImageBounds)
       isCropMode = false
       if (cropBox) cropBox.style.display = 'none'
       cropBtn.textContent = 'Recortar'
@@ -271,6 +349,8 @@ function setupEditStageListeners(container: HTMLElement, currentPage: ScannedPag
 
   // Reset crop
   document.getElementById('reset-crop-btn')?.addEventListener('click', async () => {
+    resizeObserver.disconnect()
+    window.removeEventListener('resize', adjustImageBounds)
     currentPage.crop = { x: 0, y: 0, width: 1, height: 1 }
     currentPage.processedDataUrl = await processPageImage(currentPage)
     isCropMode = false
@@ -286,32 +366,54 @@ function setupEditStageListeners(container: HTMLElement, currentPage: ScannedPag
       document.querySelectorAll('.filter-btn').forEach((b) => b.classList.remove('active'))
       btn.classList.add('active')
       currentPage.filter = (btn as HTMLElement).dataset.filter as 'raw' | 'bw' | 'color'
-      currentPage.processedDataUrl = await processPageImage(currentPage)
-      const img = document.getElementById('editor-preview-img') as HTMLImageElement
-      if (img) img.src = currentPage.processedDataUrl
+      if (isCropMode) {
+        const fullUrl = await processPageImage({
+          ...currentPage,
+          crop: { x: 0, y: 0, width: 1, height: 1 }
+        })
+        if (img) img.src = fullUrl
+      } else {
+        currentPage.processedDataUrl = await processPageImage(currentPage)
+        if (img) img.src = currentPage.processedDataUrl
+      }
     })
   })
 
   // Prev / Next
-  document.getElementById('prev-page-btn')?.addEventListener('click', () => {
+  document.getElementById('prev-page-btn')?.addEventListener('click', async () => {
     if (currentEditIndex > 0) {
+      resizeObserver.disconnect()
+      window.removeEventListener('resize', adjustImageBounds)
+      if (isCropMode) {
+        currentPage.processedDataUrl = await processPageImage(currentPage)
+        isCropMode = false
+      }
       currentEditIndex--
-      isCropMode = false
       renderEditStage(container)
     }
   })
 
-  document.getElementById('next-page-btn')?.addEventListener('click', () => {
+  document.getElementById('next-page-btn')?.addEventListener('click', async () => {
     if (currentEditIndex < scannedPages.length - 1) {
+      resizeObserver.disconnect()
+      window.removeEventListener('resize', adjustImageBounds)
+      if (isCropMode) {
+        currentPage.processedDataUrl = await processPageImage(currentPage)
+        isCropMode = false
+      }
       currentEditIndex++
-      isCropMode = false
       renderEditStage(container)
     }
   })
 
   // Go to Stage 2: Cascade
-  document.getElementById('go-to-cascade-btn')?.addEventListener('click', () => {
-    isCropMode = false
+  document.getElementById('go-to-cascade-btn')?.addEventListener('click', async () => {
+    resizeObserver.disconnect()
+    window.removeEventListener('resize', adjustImageBounds)
+    if (isCropMode) {
+      currentPage.processedDataUrl = await processPageImage(currentPage)
+      isCropMode = false
+    }
     currentStage = 'cascade'
     renderCurrentStage(container)
   })
@@ -331,16 +433,19 @@ function setupCropHandles(page: ScannedPage): void {
   }
   updateCropBoxDom()
 
-  let activeHandle: string | null = null
+  let dragMode: 'corner' | 'move' | null = null
+  let activeCorner: string | null = null
   let startX = 0
   let startY = 0
   let startCrop = { ...page.crop }
 
+  // 1. Corner Handles dragging
   const handles = cropBox.querySelectorAll('.crop-handle')
   handles.forEach((handle) => {
     handle.addEventListener('pointerdown', (e: any) => {
       e.stopPropagation()
-      activeHandle = (handle as HTMLElement).dataset.corner || null
+      dragMode = 'corner'
+      activeCorner = (handle as HTMLElement).dataset.corner || null
       startX = e.clientX
       startY = e.clientY
       startCrop = { ...page.crop }
@@ -348,43 +453,104 @@ function setupCropHandles(page: ScannedPage): void {
     })
 
     handle.addEventListener('pointermove', (e: any) => {
-      if (!activeHandle) return
+      if (dragMode !== 'corner' || !activeCorner) return
       const rect = wrapper.getBoundingClientRect()
+      if (rect.width === 0 || rect.height === 0) return
       const dx = (e.clientX - startX) / rect.width
       const dy = (e.clientY - startY) / rect.height
+      const minSize = 0.08
 
-      if (activeHandle === 'tl') {
-        const newX = Math.max(0, Math.min(startCrop.x + startCrop.width - 0.1, startCrop.x + dx))
-        const newY = Math.max(0, Math.min(startCrop.y + startCrop.height - 0.1, startCrop.y + dy))
+      if (activeCorner === 'tl') {
+        const newX = Math.max(0, Math.min(startCrop.x + startCrop.width - minSize, startCrop.x + dx))
+        const newY = Math.max(0, Math.min(startCrop.y + startCrop.height - minSize, startCrop.y + dy))
         page.crop.width = startCrop.width - (newX - startCrop.x)
         page.crop.height = startCrop.height - (newY - startCrop.y)
         page.crop.x = newX
         page.crop.y = newY
-      } else if (activeHandle === 'tr') {
-        const newY = Math.max(0, Math.min(startCrop.y + startCrop.height - 0.1, startCrop.y + dy))
-        page.crop.width = Math.min(1 - page.crop.x, Math.max(0.1, startCrop.width + dx))
+      } else if (activeCorner === 'tr') {
+        const newY = Math.max(0, Math.min(startCrop.y + startCrop.height - minSize, startCrop.y + dy))
+        page.crop.width = Math.min(1 - startCrop.x, Math.max(minSize, startCrop.width + dx))
         page.crop.height = startCrop.height - (newY - startCrop.y)
         page.crop.y = newY
-      } else if (activeHandle === 'bl') {
-        const newX = Math.max(0, Math.min(startCrop.x + startCrop.width - 0.1, startCrop.x + dx))
+      } else if (activeCorner === 'bl') {
+        const newX = Math.max(0, Math.min(startCrop.x + startCrop.width - minSize, startCrop.x + dx))
         page.crop.width = startCrop.width - (newX - startCrop.x)
-        page.crop.height = Math.min(1 - page.crop.y, Math.max(0.1, startCrop.height + dy))
+        page.crop.height = Math.min(1 - startCrop.y, Math.max(minSize, startCrop.height + dy))
         page.crop.x = newX
-      } else if (activeHandle === 'br') {
-        page.crop.width = Math.min(1 - page.crop.x, Math.max(0.1, startCrop.width + dx))
-        page.crop.height = Math.min(1 - page.crop.y, Math.max(0.1, startCrop.height + dy))
+      } else if (activeCorner === 'br') {
+        page.crop.width = Math.min(1 - startCrop.x, Math.max(minSize, startCrop.width + dx))
+        page.crop.height = Math.min(1 - startCrop.y, Math.max(minSize, startCrop.height + dy))
       }
 
       updateCropBoxDom()
     })
 
-    handle.addEventListener('pointerup', (e: any) => {
-      activeHandle = null
-      try {
-        ;(handle as HTMLElement).releasePointerCapture(e.pointerId)
-      } catch {}
-    })
+    const endDrag = (e: any) => {
+      if (dragMode === 'corner') {
+        dragMode = null
+        activeCorner = null
+        try {
+          ;(handle as HTMLElement).releasePointerCapture(e.pointerId)
+        } catch {}
+      }
+    }
+    handle.addEventListener('pointerup', endDrag)
+    handle.addEventListener('pointercancel', endDrag)
   })
+
+  // 2. Dragging inside the crop box to MOVE it
+  cropBox.addEventListener('pointerdown', (e: any) => {
+    if ((e.target as HTMLElement).classList.contains('crop-handle')) return
+
+    // Safety corner margin: do not trigger move if click is within corner hit zones
+    const boxRect = cropBox.getBoundingClientRect()
+    const relX = e.clientX - boxRect.left
+    const relY = e.clientY - boxRect.top
+    const cornerSize = Math.min(36, Math.min(boxRect.width, boxRect.height) * 0.35)
+    const isNearCorner =
+      (relX < cornerSize && relY < cornerSize) ||
+      (relX > boxRect.width - cornerSize && relY < cornerSize) ||
+      (relX < cornerSize && relY > boxRect.height - cornerSize) ||
+      (relX > boxRect.width - cornerSize && relY > boxRect.height - cornerSize)
+
+    if (isNearCorner) return
+
+    e.stopPropagation()
+    dragMode = 'move'
+    startX = e.clientX
+    startY = e.clientY
+    startCrop = { ...page.crop }
+    cropBox.setPointerCapture(e.pointerId)
+  })
+
+  cropBox.addEventListener('pointermove', (e: any) => {
+    if (dragMode !== 'move') return
+    const rect = wrapper.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) return
+    const dx = (e.clientX - startX) / rect.width
+    const dy = (e.clientY - startY) / rect.height
+
+    let newX = startCrop.x + dx
+    let newY = startCrop.y + dy
+
+    newX = Math.max(0, Math.min(1 - startCrop.width, newX))
+    newY = Math.max(0, Math.min(1 - startCrop.height, newY))
+
+    page.crop.x = newX
+    page.crop.y = newY
+    updateCropBoxDom()
+  })
+
+  const endMove = (e: any) => {
+    if (dragMode === 'move') {
+      dragMode = null
+      try {
+        cropBox.releasePointerCapture(e.pointerId)
+      } catch {}
+    }
+  }
+  cropBox.addEventListener('pointerup', endMove)
+  cropBox.addEventListener('pointercancel', endMove)
 }
 
 /* ═══════════════════════════════════════════
@@ -395,7 +561,7 @@ function renderCascadeStage(container: HTMLElement): void {
   container.innerHTML = `
     <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden; height: 100%;">
       <!-- Hidden file input for adding more photos -->
-      <input type="file" id="more-image-input" accept="image/jpeg,image/png,image/webp,image/jpg" multiple style="display:none" />
+      <input type="file" id="more-image-input" accept="image/*" multiple style="display:none" />
 
       <!-- Top Header -->
       <div style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); background: var(--bg-secondary); flex-shrink: 0;">
@@ -422,15 +588,17 @@ function renderCascadeStage(container: HTMLElement): void {
         <div class="action-buttons">
           <button id="clear-all-btn" class="btn-secondary">Borrar todo</button>
           
-          <button id="create-pdf-btn" class="btn-primary">
+          <button id="save-pdf-btn" class="btn-primary">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>
-              <path d="M14 3v5h5M16 13H8M16 17H8M10 9H8"/>
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
             </svg>
-            Crear PDF (${scannedPages.length} pág)
+            Guardar PDF (${scannedPages.length} pág)
           </button>
 
-          <div id="cascade-chain-actions" class="chain-actions" style="display: none;">
+          <div class="chain-actions">
+            <span>o continuar en:</span>
             <button id="chain-compress-btn" class="btn-secondary">Comprimir</button>
             <button id="chain-merge-btn" class="btn-secondary">Unir</button>
             <button id="chain-split-btn" class="btn-secondary">Separar</button>
@@ -444,10 +612,17 @@ function renderCascadeStage(container: HTMLElement): void {
   const moreFileInput = document.getElementById('more-image-input') as HTMLInputElement
   const addMoreBtn = document.getElementById('add-more-photos-btn')!
   const clearAllBtn = document.getElementById('clear-all-btn')!
-  const createPdfBtn = document.getElementById('create-pdf-btn') as HTMLButtonElement
+  const savePdfBtn = document.getElementById('save-pdf-btn') as HTMLButtonElement
 
   // Add more photos
-  addMoreBtn.addEventListener('click', () => moreFileInput.click())
+  addMoreBtn.addEventListener('click', (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    moreFileInput.click()
+  })
+  moreFileInput.addEventListener('click', (e) => {
+    e.stopPropagation()
+  })
   moreFileInput.addEventListener('change', async (e) => {
     const files = (e.target as HTMLInputElement).files
     if (files && files.length > 0) {
@@ -461,9 +636,9 @@ function renderCascadeStage(container: HTMLElement): void {
           filter: 'raw',
           crop: { x: 0, y: 0, width: 1, height: 1 }
         }
-        newPage.processedDataUrl = await processPageImage(newPage)
         scannedPages.push(newPage)
       }
+      moreFileInput.value = ''
       renderCascadeStage(container)
     }
   })
@@ -564,47 +739,68 @@ function renderCascadeStage(container: HTMLElement): void {
     }
   })
 
-  // Create PDF Handler
-  createPdfBtn.addEventListener('click', async () => {
+  // Save PDF Handler (Direct)
+  savePdfBtn.addEventListener('click', async () => {
     if (scannedPages.length === 0) return
 
-    const originalHtml = createPdfBtn.innerHTML
-    createPdfBtn.disabled = true
-    createPdfBtn.innerHTML = `<div class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block"></div> Generando PDF...`
+    const dateStr = new Date().toISOString().slice(0, 10)
+    const defaultName = `PDFlt_Escaneo_${dateStr}.pdf`
+    const fileName = await pdfService.saveFileDialog(defaultName, 'Guardar PDF')
+    if (!fileName) return
+
+    const originalHtml = savePdfBtn.innerHTML
+    savePdfBtn.disabled = true
+    savePdfBtn.innerHTML = `<div class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block"></div> Guardando...`
 
     try {
       const imagesDataUrls = scannedPages.map((p) => p.processedDataUrl)
-      const result = await pdfService.createPdfFromImages(imagesDataUrls)
+      const result = await pdfService.createPdfFromImages(imagesDataUrls, fileName, false)
 
       if (result.success && result.outputPath) {
-        showNotification(`PDF generado con éxito (${result.pageCount} páginas)`, 'success')
-
-        // Show chain actions
-        const chainActions = document.getElementById('cascade-chain-actions')!
-        chainActions.style.display = 'flex'
-
-        const fileInfo = await pdfService.getFileInfo(result.outputPath)
-        if (fileInfo) {
-          document.getElementById('chain-compress-btn')?.addEventListener('click', () => {
-            navigateTo('compress', { fileInfo })
-          })
-          document.getElementById('chain-merge-btn')?.addEventListener('click', () => {
-            navigateTo('merge', { fileInfo })
-          })
-          document.getElementById('chain-split-btn')?.addEventListener('click', () => {
-            navigateTo('split', { fileInfo })
-          })
-        }
+        showNotification(`PDF guardado correctamente como ${fileName} (${result.pageCount} páginas)`, 'success')
       } else {
-        showNotification(result.error || 'Error al generar el PDF', 'error')
+        showNotification(result.error || 'Error al guardar el PDF', 'error')
       }
     } catch (err: any) {
-      showNotification(err.message || 'Error inesperado al crear PDF', 'error')
+      showNotification(err.message || 'Error inesperado al guardar PDF', 'error')
     } finally {
-      createPdfBtn.disabled = false
-      createPdfBtn.innerHTML = originalHtml
+      savePdfBtn.disabled = false
+      savePdfBtn.innerHTML = originalHtml
     }
   })
+
+  // Direct Chain Handlers
+  const handleChainAction = async (targetView: 'compress' | 'merge' | 'split') => {
+    if (scannedPages.length === 0) return
+
+    const originalHtml = savePdfBtn.innerHTML
+    savePdfBtn.disabled = true
+    savePdfBtn.innerHTML = `<div class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block"></div> Preparando...`
+
+    try {
+      const imagesDataUrls = scannedPages.map((p) => p.processedDataUrl)
+      const result = await pdfService.createPdfFromImages(imagesDataUrls, undefined, true)
+
+      if (result.success && result.outputPath) {
+        const fileInfo = await pdfService.getFileInfo(result.outputPath)
+        if (fileInfo) {
+          showNotification('Redirigiendo...', 'success')
+          navigateTo(targetView, { fileInfo })
+        }
+      } else {
+        showNotification(result.error || 'Error al preparar PDF', 'error')
+      }
+    } catch (err: any) {
+      showNotification(err.message || 'Error al preparar PDF', 'error')
+    } finally {
+      savePdfBtn.disabled = false
+      savePdfBtn.innerHTML = originalHtml
+    }
+  }
+
+  document.getElementById('chain-compress-btn')?.addEventListener('click', () => handleChainAction('compress'))
+  document.getElementById('chain-merge-btn')?.addEventListener('click', () => handleChainAction('merge'))
+  document.getElementById('chain-split-btn')?.addEventListener('click', () => handleChainAction('split'))
 }
 
 /* ═══════════════════════════════════════════
@@ -621,16 +817,52 @@ function readFileAsDataUrl(file: File): Promise<string> {
 }
 
 function processPageImage(page: ScannedPage): Promise<string> {
+  // If raw, no rotation, and full crop, return original dataUrl directly (fast & no canvas loss)
+  if (
+    page.filter === 'raw' &&
+    page.rotation === 0 &&
+    page.crop.x === 0 &&
+    page.crop.y === 0 &&
+    page.crop.width === 1 &&
+    page.crop.height === 1
+  ) {
+    return Promise.resolve(page.originalDataUrl)
+  }
+
   return new Promise((resolve) => {
     const img = new Image()
+    img.onerror = () => {
+      resolve(page.originalDataUrl)
+    }
     img.onload = () => {
-      // 1. Calculate Crop bounds in source image pixels
-      const sx = Math.max(0, Math.round(page.crop.x * img.width))
-      const sy = Math.max(0, Math.round(page.crop.y * img.height))
-      const sw = Math.min(img.width - sx, Math.round(page.crop.width * img.width))
-      const sh = Math.min(img.height - sy, Math.round(page.crop.height * img.height))
+      // 1. Rotate source image onto an intermediate canvas
+      const isRotated = page.rotation === 90 || page.rotation === 270
+      const rotCanvas = document.createElement('canvas')
+      rotCanvas.width = isRotated ? img.height : img.width
+      rotCanvas.height = isRotated ? img.width : img.height
+      const rotCtx = rotCanvas.getContext('2d')!
 
-      // 2. Downsample if needed (max 1800px for balance between sharpness and performance)
+      rotCtx.save()
+      if (page.rotation === 90) {
+        rotCtx.translate(rotCanvas.width, 0)
+        rotCtx.rotate((90 * Math.PI) / 180)
+      } else if (page.rotation === 180) {
+        rotCtx.translate(rotCanvas.width, rotCanvas.height)
+        rotCtx.rotate((180 * Math.PI) / 180)
+      } else if (page.rotation === 270) {
+        rotCtx.translate(0, rotCanvas.height)
+        rotCtx.rotate((270 * Math.PI) / 180)
+      }
+      rotCtx.drawImage(img, 0, 0)
+      rotCtx.restore()
+
+      // 2. Calculate crop bounds on the rotated image
+      const sx = Math.max(0, Math.round(page.crop.x * rotCanvas.width))
+      const sy = Math.max(0, Math.round(page.crop.y * rotCanvas.height))
+      const sw = Math.min(rotCanvas.width - sx, Math.round(page.crop.width * rotCanvas.width))
+      const sh = Math.min(rotCanvas.height - sy, Math.round(page.crop.height * rotCanvas.height))
+
+      // 3. Downsample if needed (max 1800px for balance between sharpness and performance)
       let targetW = sw
       let targetH = sh
       const maxDim = 1800
@@ -644,30 +876,14 @@ function processPageImage(page: ScannedPage): Promise<string> {
         }
       }
 
-      // 3. Setup canvas with rotation
+      // 4. Draw cropped region to final canvas
       const canvas = document.createElement('canvas')
+      canvas.width = targetW
+      canvas.height = targetH
       const ctx = canvas.getContext('2d')!
+      ctx.drawImage(rotCanvas, sx, sy, sw, sh, 0, 0, targetW, targetH)
 
-      const isRotated = page.rotation === 90 || page.rotation === 270
-      canvas.width = isRotated ? targetH : targetW
-      canvas.height = isRotated ? targetW : targetH
-
-      ctx.save()
-      if (page.rotation === 90) {
-        ctx.translate(canvas.width, 0)
-        ctx.rotate((90 * Math.PI) / 180)
-      } else if (page.rotation === 180) {
-        ctx.translate(canvas.width, canvas.height)
-        ctx.rotate((180 * Math.PI) / 180)
-      } else if (page.rotation === 270) {
-        ctx.translate(0, canvas.height)
-        ctx.rotate((270 * Math.PI) / 180)
-      }
-
-      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetW, targetH)
-      ctx.restore()
-
-      // 4. Filters
+      // 5. Filters
       if (page.filter !== 'raw') {
         const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height)
         const d = imgData.data

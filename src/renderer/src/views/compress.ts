@@ -349,13 +349,13 @@ async function handleSaveFinal(chaining: boolean, targetView?: string) {
     saveBtn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block"></div> Guardando...'
     
     try {
-      const defaultName = currentFileInfo?.fileName.replace(/\.pdf$/i, '_comprimido.pdf') || 'comprimido.pdf'
-      const savePath = await pdfService.saveFileDialog(defaultName)
+      const defaultName = currentFileInfo?.fileName.replace(/\.pdf$/i, '_comprimido.pdf') || 'PDFlt_comprimido.pdf'
+      const savePath = await pdfService.saveFileDialog(defaultName, 'Guardar PDF Comprimido')
       
       if (savePath) {
         const copied = await pdfService.copyFile(lastOperationResult.outputPath, savePath)
         if (copied) {
-          showNotification('Guardado exitosamente', 'success')
+          showNotification(`PDF guardado correctamente como ${savePath}`, 'success')
         } else {
           showNotification('Error al guardar el archivo', 'error')
         }
