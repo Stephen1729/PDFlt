@@ -268,13 +268,20 @@ export const pdfService = {
         }
         
         if (fitToImage) {
-          // Exact fit: PDF page matches image dimensions with 0 margins
-          const page = newPdf.addPage([img.width, img.height])
+          // Normalize to standard document dimensions (A4 reference: 595.28 pt portrait, 841.89 pt landscape)
+          // Preserves exact aspect ratio, eliminates white margins, and ensures uniform sizing across pages
+          const isLandscape = img.width > img.height
+          const baseWidth = isLandscape ? 841.89 : 595.28
+          const scale = baseWidth / img.width
+          const pageWidth = baseWidth
+          const pageHeight = Math.round(img.height * scale * 100) / 100
+
+          const page = newPdf.addPage([pageWidth, pageHeight])
           page.drawImage(img, {
             x: 0,
             y: 0,
-            width: img.width,
-            height: img.height
+            width: pageWidth,
+            height: pageHeight
           })
         } else {
           // Standard A4 dimensions in points with margin
