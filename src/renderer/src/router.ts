@@ -1,10 +1,11 @@
+import { renderScan } from './views/scan'
 import { renderReorder } from './views/reorder'
 import { renderMerge } from './views/merge'
 import { renderSplit } from './views/split'
 import { renderCompress } from './views/compress'
 import { renderSettings } from './views/settings'
 
-export type ViewName = 'reorder' | 'merge' | 'split' | 'compress' | 'settings'
+export type ViewName = 'scan' | 'reorder' | 'merge' | 'split' | 'compress' | 'settings'
 
 /**
  * Simple view-based router. Swaps the #main-content content.
@@ -12,16 +13,22 @@ export type ViewName = 'reorder' | 'merge' | 'split' | 'compress' | 'settings'
 export function navigateTo(view: ViewName, payload?: any): void {
   const container = document.getElementById('main-content')!
 
-  // Update sidebar active state
-  document.querySelectorAll('.sidebar-nav .nav-item, [data-view="settings"]').forEach((item) => {
+  // Update bottom-nav active state
+  document.querySelectorAll('.bottom-nav .nav-item').forEach((item) => {
     item.classList.remove('active')
-    if ((item as HTMLElement).dataset.view === view) {
+    const itemTarget = (item as HTMLElement).dataset.view
+    if (itemTarget === view) {
+      item.classList.add('active')
+    } else if (itemTarget === 'more' && (view === 'reorder' || view === 'settings')) {
       item.classList.add('active')
     }
   })
 
   // Render view immediately for maximum responsiveness
   switch (view) {
+    case 'scan':
+      renderScan(container)
+      break
     case 'reorder':
       renderReorder(container, payload)
       break

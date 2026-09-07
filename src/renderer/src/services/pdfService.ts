@@ -14,7 +14,7 @@ export const pdfService = {
     try {
       const result = await FilePicker.pickFiles({
         types: ['application/pdf'],
-        multiple: false,
+        limit: 1,
         readData: true
       })
       if (!result.files || result.files.length === 0) return null
@@ -44,7 +44,7 @@ export const pdfService = {
     try {
       const result = await FilePicker.pickFiles({
         types: ['application/pdf'],
-        multiple: true,
+        limit: 0,
         readData: true
       })
       if (!result.files || result.files.length === 0) return null
@@ -127,9 +127,6 @@ export const pdfService = {
     const b64 = fileCache.get(filePath)
     if (!b64) throw new Error('File not found in cache')
     
-    // We cannot use fetch(data:application/pdf;base64) because Chrome has URL length limits
-    // which throws "Failed to fetch" on large files.
-    // atob is standard and fast enough for V8.
     const binaryString = window.atob(b64)
     const len = binaryString.length
     const bytes = new Uint8Array(len)
@@ -242,8 +239,51 @@ export const pdfService = {
     return defaultName
   },
   
+  async createPdfFromImages(imagesBase64: string[], toTemp?: boolean): Promise<OperationResult> {
+    try {
+      const newPdf = await PDFDocument.create()
+      
+      for (const b64 of imagesBase64) {
+        const b64Data = b64.includes(',') ? b64.split(',')[1] : b64
+        const img = await newPdf.embedJpg(b64Data)
+        
+        // Standard A4 dimensions in points
+        const A4_WIDTH = 595.28
+        const A4_HEIGHT = 841.89
+        
+        const isLandscape = img.width > img.height
+        const pageWidth = isLandscape ? A4_HEIGHT : A4_WIDTH
+        const pageHeight = isLandscape ? A4_WIDTH : A4_HEIGHT
+        
+        const page = newPdf.addPage([pageWidth, pageHeight])
+        
+        const margin = 20
+        const availWidth = pageWidth - margin * 2
+        const availHeight = pageHeight - margin * 2
+        
+        const scale = Math.min(availWidth / img.width, availHeight / img.height)
+        const imgWidth = img.width * scale
+        const imgHeight = img.height * scale
+        
+        const x = (pageWidth - imgWidth) / 2
+        const y = (pageHeight - imgHeight) / 2
+        
+        page.drawImage(img, {
+          x,
+          y,
+          width: imgWidth,
+          height: imgHeight
+        })
+      }
+      
+      const b64Result = await newPdf.saveAsBase64({ useObjectStreams: true })
+      return await saveResult(b64Result, 'escaneo.pdf', toTemp, newPdf.getPageCount())
+    } catch (e: any) {
+      return { success: false, error: e.message }
+    }
+  },
+
   async copyFile(sourcePath: string, destinationPath: string): Promise<boolean> {
-    // We already have the file in cache, just save it using Filesystem!
     try {
       const b64 = fileCache.get(sourcePath)
       if (!b64) return false
@@ -278,6 +318,7 @@ async function saveResult(b64: string, defaultName: string, toTemp?: boolean, pa
       directory: Directory.Documents // Saves to Documents folder
     })
     
+    fileCache.set(fileName, b64)
     return {
       success: true,
       outputPath: fileName,
@@ -286,6 +327,24 @@ async function saveResult(b64: string, defaultName: string, toTemp?: boolean, pa
       compressedSize: b64.length * 0.75
     }
   } catch (e: any) {
-    return { success: false, error: e.message }
+    // Fallback for browser preview (npm run dev)
+    try {
+      const a = document.createElement('a')
+      a.href = `data:application/pdf;base64,${b64}`
+      a.download = fileName
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      fileCache.set(fileName, b64)
+      return {
+        success: true,
+        outputPath: fileName,
+        pageCount,
+        originalSize,
+        compressedSize: b64.length * 0.75
+      }
+    } catch {
+      return { success: false, error: e.message }
+    }
   }
 }

@@ -14,26 +14,23 @@ export function renderMerge(container: HTMLElement): void {
   selectedFiles = []
 
   container.innerHTML = `
-    <div class="view-header">
-      <h2>Unir PDFs</h2>
-    </div>
-
     <!-- Drop zone for initial empty state -->
     <div id="drop-zone" class="drop-zone">
       <div class="drop-zone-content">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
-          <polyline points="14 2 14 8 20 8"/>
-          <line x1="12" y1="18" x2="12" y2="12"/>
-          <line x1="9" y1="15" x2="15" y2="15"/>
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+          <polyline points="17 21 17 13 7 13 7 21"/>
+          <polyline points="7 3 7 8 15 8"/>
         </svg>
+        <h3>Unir PDFs</h3>
         <p>Toca para seleccionar PDFs</p>
       </div>
     </div>
 
     <!-- File list area (visible when files loaded) -->
     <div id="file-list-container" style="display:none; padding: 1rem; width: 100%; max-width: 800px; margin: 0 auto; flex: 1; overflow-y: auto;">
+      <h2 style="margin-bottom: 4px;">Unir PDFs</h2>
       <p style="margin-bottom: 1rem; color: var(--text-muted);">Toca y arrastra los archivos para reordenarlos.</p>
       <div id="file-list" style="display: flex; flex-direction: column; gap: 0.5rem;"></div>
       <button id="add-more-btn" class="btn-secondary" style="margin-top: 1rem; width: 100%;">+ Añadir más PDFs</button>

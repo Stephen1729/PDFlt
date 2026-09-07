@@ -29,27 +29,26 @@ export function renderReorder(container: HTMLElement, payload?: any): void {
   originalPageCount = 0
 
   container.innerHTML = `
-    <div class="view-header">
-      <h2>Reordenar páginas</h2>
-      <span id="file-name" class="file-name"></span>
-    </div>
-
     <!-- Drop zone (visible when no file) -->
     <div id="drop-zone" class="drop-zone">
       <div class="drop-zone-content">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
-          <polyline points="14 2 14 8 20 8"/>
-          <line x1="12" y1="18" x2="12" y2="12"/>
-          <line x1="9" y1="15" x2="15" y2="15"/>
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/>
         </svg>
+        <h3>Reordenar páginas</h3>
         <p>Toca para seleccionar un PDF</p>
       </div>
     </div>
 
     <!-- Thumbnails (visible when file loaded) -->
     <div id="thumbnails-scroll" class="thumbnails-scroll" style="display:none">
+      <div class="thumbnails-header" style="margin-bottom: 1rem;">
+        <h2 id="file-name" style="margin-bottom: 4px;"></h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">
+          Arrastra las páginas para cambiar su orden.
+        </p>
+      </div>
       <div id="thumbnails-grid" class="thumbnails-grid"></div>
     </div>
 
