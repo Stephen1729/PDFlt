@@ -239,41 +239,72 @@ export const pdfService = {
     return await promptSaveFileName(defaultName, title)
   },
   
-  async createPdfFromImages(imagesBase64: string[], customName?: string, toTemp?: boolean): Promise<OperationResult> {
+  async createPdfFromImages(
+    imagesBase64: string[],
+    customName?: string,
+    toTemp?: boolean,
+    options?: { fitToImage?: boolean }
+  ): Promise<OperationResult> {
     try {
       const newPdf = await PDFDocument.create()
+      const fitToImage = options?.fitToImage ?? true
       
       for (const b64 of imagesBase64) {
         const b64Data = b64.includes(',') ? b64.split(',')[1] : b64
-        const img = await newPdf.embedJpg(b64Data)
         
-        // Standard A4 dimensions in points
-        const A4_WIDTH = 595.28
-        const A4_HEIGHT = 841.89
+        let img
+        if (b64.startsWith('data:image/png') || b64Data.startsWith('iVBORw0KGgo')) {
+          try {
+            img = await newPdf.embedPng(b64Data)
+          } catch {
+            img = await newPdf.embedJpg(b64Data)
+          }
+        } else {
+          try {
+            img = await newPdf.embedJpg(b64Data)
+          } catch {
+            img = await newPdf.embedPng(b64Data)
+          }
+        }
         
-        const isLandscape = img.width > img.height
-        const pageWidth = isLandscape ? A4_HEIGHT : A4_WIDTH
-        const pageHeight = isLandscape ? A4_WIDTH : A4_HEIGHT
-        
-        const page = newPdf.addPage([pageWidth, pageHeight])
-        
-        const margin = 20
-        const availWidth = pageWidth - margin * 2
-        const availHeight = pageHeight - margin * 2
-        
-        const scale = Math.min(availWidth / img.width, availHeight / img.height)
-        const imgWidth = img.width * scale
-        const imgHeight = img.height * scale
-        
-        const x = (pageWidth - imgWidth) / 2
-        const y = (pageHeight - imgHeight) / 2
-        
-        page.drawImage(img, {
-          x,
-          y,
-          width: imgWidth,
-          height: imgHeight
-        })
+        if (fitToImage) {
+          // Exact fit: PDF page matches image dimensions with 0 margins
+          const page = newPdf.addPage([img.width, img.height])
+          page.drawImage(img, {
+            x: 0,
+            y: 0,
+            width: img.width,
+            height: img.height
+          })
+        } else {
+          // Standard A4 dimensions in points with margin
+          const A4_WIDTH = 595.28
+          const A4_HEIGHT = 841.89
+          
+          const isLandscape = img.width > img.height
+          const pageWidth = isLandscape ? A4_HEIGHT : A4_WIDTH
+          const pageHeight = isLandscape ? A4_WIDTH : A4_HEIGHT
+          
+          const page = newPdf.addPage([pageWidth, pageHeight])
+          
+          const margin = 20
+          const availWidth = pageWidth - margin * 2
+          const availHeight = pageHeight - margin * 2
+          
+          const scale = Math.min(availWidth / img.width, availHeight / img.height)
+          const imgWidth = img.width * scale
+          const imgHeight = img.height * scale
+          
+          const x = (pageWidth - imgWidth) / 2
+          const y = (pageHeight - imgHeight) / 2
+          
+          page.drawImage(img, {
+            x,
+            y,
+            width: imgWidth,
+            height: imgHeight
+          })
+        }
       }
       
       const b64Result = await newPdf.saveAsBase64({ useObjectStreams: true })

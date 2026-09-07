@@ -202,7 +202,7 @@ function renderEditStage(container: HTMLElement): void {
 
           <!-- Filters Group -->
           <div class="filter-btn-group">
-            <button class="filter-btn ${currentPage.filter === 'raw' ? 'active' : ''}" data-filter="raw">En crudo</button>
+            <button class="filter-btn ${currentPage.filter === 'raw' ? 'active' : ''}" data-filter="raw">Original</button>
             <button class="filter-btn ${currentPage.filter === 'bw' ? 'active' : ''}" data-filter="bw">Doc. B&N</button>
             <button class="filter-btn ${currentPage.filter === 'color' ? 'active' : ''}" data-filter="color">Color+</button>
           </div>
@@ -585,6 +585,12 @@ function renderCascadeStage(container: HTMLElement): void {
 
       <!-- Action Bar -->
       <div class="action-bar">
+        <div style="width: 100%; display: flex; justify-content: center; margin-bottom: 8px;">
+          <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--text-secondary); cursor: pointer; user-select: none;">
+            <input type="checkbox" id="fit-image-checkbox" checked style="accent-color: var(--primary); width: 16px; height: 16px; cursor: pointer;" />
+            <span>Ajustar página a la imagen (sin bordes blancos)</span>
+          </label>
+        </div>
         <div class="action-buttons">
           <button id="clear-all-btn" class="btn-secondary">Borrar todo</button>
           
@@ -753,8 +759,10 @@ function renderCascadeStage(container: HTMLElement): void {
     savePdfBtn.innerHTML = `<div class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block"></div> Guardando...`
 
     try {
+      const fitCheckbox = document.getElementById('fit-image-checkbox') as HTMLInputElement | null
+      const fitToImage = fitCheckbox ? fitCheckbox.checked : true
       const imagesDataUrls = scannedPages.map((p) => p.processedDataUrl)
-      const result = await pdfService.createPdfFromImages(imagesDataUrls, fileName, false)
+      const result = await pdfService.createPdfFromImages(imagesDataUrls, fileName, false, { fitToImage })
 
       if (result.success && result.outputPath) {
         showNotification(`PDF guardado correctamente como ${fileName} (${result.pageCount} páginas)`, 'success')
@@ -778,8 +786,10 @@ function renderCascadeStage(container: HTMLElement): void {
     savePdfBtn.innerHTML = `<div class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block"></div> Preparando...`
 
     try {
+      const fitCheckbox = document.getElementById('fit-image-checkbox') as HTMLInputElement | null
+      const fitToImage = fitCheckbox ? fitCheckbox.checked : true
       const imagesDataUrls = scannedPages.map((p) => p.processedDataUrl)
-      const result = await pdfService.createPdfFromImages(imagesDataUrls, undefined, true)
+      const result = await pdfService.createPdfFromImages(imagesDataUrls, undefined, true, { fitToImage })
 
       if (result.success && result.outputPath) {
         const fileInfo = await pdfService.getFileInfo(result.outputPath)
