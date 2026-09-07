@@ -660,6 +660,137 @@
   flex-shrink: 0;
 }
 
+/* ═══════════════════════════════════════════
+   Scanner 2-Stage Workflow Styles
+   ═══════════════════════════════════════════ */
+
+.scan-editor-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+.scan-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.scan-editor-viewport {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 12px;
+  background: #0d0e12;
+}
+
+.scan-editor-image-wrapper {
+  position: relative;
+  max-width: 100%;
+  max-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.scan-editor-image-wrapper img {
+  max-width: 100%;
+  max-height: calc(100vh - 280px);
+  object-fit: contain;
+  border-radius: 6px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Interactive Crop Overlay */
+.crop-overlay {
+  position: absolute;
+  inset: 0;
+  border: 2px dashed var(--accent);
+  background: rgba(0, 0, 0, 0.25);
+  cursor: move;
+  touch-action: none;
+}
+
+.crop-handle {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  background: var(--accent);
+  border: 2px solid #fff;
+  border-radius: 50%;
+  touch-action: none;
+}
+
+.crop-handle.tl { top: -12px; left: -12px; cursor: nwse-resize; }
+.crop-handle.tr { top: -12px; right: -12px; cursor: nesw-resize; }
+.crop-handle.bl { bottom: -12px; left: -12px; cursor: nesw-resize; }
+.crop-handle.br { bottom: -12px; right: -12px; cursor: nwse-resize; }
+
+.scan-editor-controls {
+  padding: 10px 16px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.scan-editor-toolbar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filter-btn-group {
+  display: flex;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.filter-btn {
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--duration) var(--ease);
+}
+
+.filter-btn:hover {
+  color: var(--text-primary);
+}
+
+.filter-btn.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.scan-editor-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 /* Global filter active state */
 .global-filter-btn.active {
   background: var(--accent) !important;
