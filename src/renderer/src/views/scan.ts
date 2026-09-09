@@ -81,6 +81,120 @@ async function takePhoto(): Promise<string | null> {
   }
 }
 
+async function startBatchCameraSession(onFinish: (photos: string[]) => void): Promise<void> {
+  const batchPhotos: string[] = []
+
+  const firstPhoto = await takePhoto()
+  if (!firstPhoto) return
+
+  batchPhotos.push(firstPhoto)
+  showBatchModal()
+
+  function showBatchModal() {
+    document.getElementById('batch-camera-overlay')?.remove()
+
+    const overlay = document.createElement('div')
+    overlay.id = 'batch-camera-overlay'
+    overlay.className = 'modal-backdrop'
+    overlay.style.cssText = `
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      padding: 16px;
+    `
+
+    overlay.innerHTML = `
+      <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 16px; padding: 20px; width: 100%; max-width: 360px; box-shadow: 0 12px 30px rgba(0,0,0,0.45); display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h3 style="margin: 0; font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary);">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+              <circle cx="12" cy="13" r="4"></circle>
+            </svg>
+            Fotos tomadas: <strong style="color: var(--primary);">${batchPhotos.length}</strong>
+          </h3>
+          <button id="batch-cancel-btn" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-muted); padding: 4px 8px; line-height: 1;" title="Descartar">✕</button>
+        </div>
+
+        <div style="display: flex; gap: 10px; overflow-x: auto; padding: 8px 4px 14px; scrollbar-width: thin;">
+          ${batchPhotos
+            .map(
+              (url, idx) => `
+            <div style="position: relative; flex-shrink: 0; width: 72px; height: 96px; border-radius: 8px; overflow: hidden; border: 2px solid var(--border); background: #000;">
+              <img src="${url}" style="width: 100%; height: 100%; object-fit: cover;" />
+              <span style="position: absolute; bottom: 2px; left: 2px; background: rgba(0,0,0,0.75); color: #fff; font-size: 0.65rem; padding: 1px 5px; border-radius: 4px; font-weight: 600;">#${idx + 1}</span>
+              <button class="batch-del-btn" data-idx="${idx}" style="position: absolute; top: 2px; right: 2px; background: rgba(220,38,38,0.9); color: #fff; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 0.75rem; display: flex; align-items: center; justify-content: center; cursor: pointer; line-height: 1;" title="Eliminar foto">✕</button>
+            </div>
+          `
+            )
+            .join('')}
+        </div>
+
+        <p style="font-size: 0.82rem; color: var(--text-muted); margin: 0 0 16px; text-align: center;">
+          ${batchPhotos.length === 1 ? '¿Deseas tomar otra página o continuar?' : 'Páginas listas para importar al documento.'}
+        </p>
+
+        <div style="display: flex; gap: 10px;">
+          <button id="batch-take-another-btn" class="btn-secondary" style="flex: 1; padding: 12px 8px; font-size: 0.88rem; border-radius: 10px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+              <circle cx="12" cy="13" r="4"></circle>
+            </svg>
+            + Tomar otra
+          </button>
+
+          <button id="batch-done-btn" class="btn-primary" style="flex: 1; padding: 12px 8px; font-size: 0.88rem; border-radius: 10px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            Importar (${batchPhotos.length})
+          </button>
+        </div>
+      </div>
+    `
+
+    document.body.appendChild(overlay)
+
+    overlay.querySelectorAll('.batch-del-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation()
+        const idx = parseInt((btn as HTMLElement).dataset.idx || '0', 10)
+        batchPhotos.splice(idx, 1)
+        if (batchPhotos.length === 0) {
+          overlay.remove()
+        } else {
+          showBatchModal()
+        }
+      })
+    })
+
+    document.getElementById('batch-take-another-btn')?.addEventListener('click', async () => {
+      overlay.style.display = 'none'
+      const nextPhoto = await takePhoto()
+      if (nextPhoto) {
+        batchPhotos.push(nextPhoto)
+      }
+      showBatchModal()
+    })
+
+    document.getElementById('batch-cancel-btn')?.addEventListener('click', () => {
+      overlay.remove()
+    })
+
+    document.getElementById('batch-done-btn')?.addEventListener('click', () => {
+      overlay.remove()
+      if (batchPhotos.length > 0) {
+        onFinish(batchPhotos)
+      }
+    })
+  }
+}
+
 /* ═══════════════════════════════════════════
    ETAPA 0: Drop Zone Inicial
    ═══════════════════════════════════════════ */
@@ -95,7 +209,7 @@ function renderDropStage(container: HTMLElement): void {
           <circle cx="12" cy="13" r="4"></circle>
         </svg>
         <h3 style="font-size: 1.25rem; margin-bottom: 4px;">Foto a PDF</h3>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">Captura con tu cámara o elige imágenes guardadas</p>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Captura varias páginas con tu cámara o elige de la galería</p>
       </div>
 
       <div style="display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 280px; z-index: 2;">
@@ -104,7 +218,7 @@ function renderDropStage(container: HTMLElement): void {
             <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
             <circle cx="12" cy="13" r="4"></circle>
           </svg>
-          Tomar foto
+          Tomar fotos
         </button>
 
         <button id="gallery-btn" class="btn-secondary" style="padding: 13px 18px; font-size: 0.95rem; border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%;">
@@ -127,21 +241,24 @@ function renderDropStage(container: HTMLElement): void {
   cameraBtn.addEventListener('click', async (e) => {
     e.preventDefault()
     e.stopPropagation()
-    const dataUrl = await takePhoto()
-    if (dataUrl) {
-      const page: ScannedPage = {
-        id: `page_${Date.now()}_${Math.random().toString(36).substring(7)}`,
-        originalDataUrl: dataUrl,
-        processedDataUrl: dataUrl,
-        rotation: 0,
-        filter: 'raw',
-        crop: { x: 0, y: 0, width: 1, height: 1 }
+    await startBatchCameraSession((photos) => {
+      for (const dataUrl of photos) {
+        const page: ScannedPage = {
+          id: `page_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+          originalDataUrl: dataUrl,
+          processedDataUrl: dataUrl,
+          rotation: 0,
+          filter: 'raw',
+          crop: { x: 0, y: 0, width: 1, height: 1 }
+        }
+        scannedPages.push(page)
       }
-      scannedPages.push(page)
-      currentEditIndex = scannedPages.length - 1
-      currentStage = 'edit'
-      renderCurrentStage(container)
-    }
+      if (scannedPages.length > 0) {
+        currentEditIndex = 0
+        currentStage = 'edit'
+        renderCurrentStage(container)
+      }
+    })
   })
 
   galleryBtn.addEventListener('click', (e) => {
@@ -715,25 +832,24 @@ function renderCascadeStage(container: HTMLElement): void {
   const savePdfBtn = document.getElementById('save-pdf-btn') as HTMLButtonElement
   const cascadeCameraBtn = document.getElementById('cascade-camera-btn')
 
-  // Add more photos via camera
+  // Add more photos via camera (batch session)
   cascadeCameraBtn?.addEventListener('click', async (e) => {
     e.preventDefault()
     e.stopPropagation()
-    const dataUrl = await takePhoto()
-    if (dataUrl) {
-      const newPage: ScannedPage = {
-        id: `page_${Date.now()}_${Math.random().toString(36).substring(7)}`,
-        originalDataUrl: dataUrl,
-        processedDataUrl: dataUrl,
-        rotation: 0,
-        filter: 'raw',
-        crop: { x: 0, y: 0, width: 1, height: 1 }
+    await startBatchCameraSession((photos) => {
+      for (const dataUrl of photos) {
+        const newPage: ScannedPage = {
+          id: `page_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+          originalDataUrl: dataUrl,
+          processedDataUrl: dataUrl,
+          rotation: 0,
+          filter: 'raw',
+          crop: { x: 0, y: 0, width: 1, height: 1 }
+        }
+        scannedPages.push(newPage)
       }
-      scannedPages.push(newPage)
-      currentEditIndex = scannedPages.length - 1
-      currentStage = 'edit'
-      renderCurrentStage(container)
-    }
+      renderCascadeStage(container)
+    })
   })
 
   // Add more photos via gallery
