@@ -342,18 +342,27 @@ function renderEditStage(container: HTMLElement): void {
     <div class="scan-editor-container">
       <!-- Top Header -->
       <div class="scan-editor-header">
-        <button id="cancel-edit-btn" class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;">
+        <button id="cancel-edit-btn" class="btn-secondary" style="padding: 6px 10px; font-size: 0.8rem;">
           Cancelar
         </button>
-        <span style="font-size: 0.95rem; font-weight: 600;">
+        <span style="font-size: 0.9rem; font-weight: 600;">
           Foto ${currentEditIndex + 1} de ${scannedPages.length}
         </span>
-        <button id="delete-current-btn" class="btn-icon" title="Eliminar foto" style="color: var(--error); width: 34px; height: 34px;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="3 6 5 6 21 6"></polyline>
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-          </svg>
-        </button>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <button id="editor-camera-btn" class="btn-primary" style="padding: 6px 10px; font-size: 0.8rem; display: flex; align-items: center; gap: 4px; border-radius: 8px;" title="Tomar más fotos con la cámara">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+              <circle cx="12" cy="13" r="4"></circle>
+            </svg>
+            + Cámara
+          </button>
+          <button id="delete-current-btn" class="btn-icon" title="Eliminar foto" style="color: var(--error); width: 32px; height: 32px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </button>
+        </div>
       </div>
 
       <!-- Main Image Viewport -->
@@ -481,6 +490,34 @@ function setupEditStageListeners(container: HTMLElement, currentPage: ScannedPag
     scannedPages = []
     currentStage = 'drop'
     renderCurrentStage(container)
+  })
+
+  // Take more photos via camera from editor
+  document.getElementById('editor-camera-btn')?.addEventListener('click', async () => {
+    resizeObserver.disconnect()
+    window.removeEventListener('resize', adjustImageBounds)
+    let added = false
+    await startBatchCameraSession((photos) => {
+      const prevLength = scannedPages.length
+      for (const dataUrl of photos) {
+        const newPage: ScannedPage = {
+          id: `page_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+          originalDataUrl: dataUrl,
+          processedDataUrl: dataUrl,
+          rotation: 0,
+          filter: 'raw',
+          crop: { x: 0, y: 0, width: 1, height: 1 }
+        }
+        scannedPages.push(newPage)
+      }
+      added = true
+      currentEditIndex = prevLength
+      isCropMode = false
+      renderEditStage(container)
+    })
+    if (!added) {
+      renderEditStage(container)
+    }
   })
 
   // Delete current photo
