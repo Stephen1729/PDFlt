@@ -1,7 +1,7 @@
 {
   "name": "pdflt",
   "type": "module",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Herramienta local para manipular PDFs — 100% offline",
   "scripts": {
     "dev": "vite",

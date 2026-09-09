@@ -202,18 +202,20 @@ async function startBatchCameraSession(onFinish: (photos: string[]) => void): Pr
 function renderDropStage(container: HTMLElement): void {
   container.innerHTML = `
     <input type="file" id="image-file-input" accept="image/*" multiple style="display:none" />
-    <div id="drop-zone" class="drop-zone" style="display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 24px; padding: 36px 16px; min-height: 280px;">
-      <div class="drop-zone-content" style="pointer-events: none;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary); margin-bottom: 8px;">
-          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-          <circle cx="12" cy="13" r="4"></circle>
-        </svg>
-        <h3 style="font-size: 1.25rem; margin-bottom: 4px;">Foto a PDF</h3>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">Captura varias páginas con tu cámara o elige de la galería</p>
+    <div id="drop-zone" style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 28px; padding: 32px 20px; width: 100%; max-width: 420px; margin: 0 auto; text-align: center;">
+      <div style="display: flex; flex-direction: column; align-items: center;">
+        <div style="width: 72px; height: 72px; border-radius: 20px; background: var(--accent-soft); display: flex; align-items: center; justify-content: center; margin-bottom: 16px; color: var(--primary);">
+          <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+            <circle cx="12" cy="13" r="4"></circle>
+          </svg>
+        </div>
+        <h3 style="font-size: 1.35rem; font-weight: 700; margin: 0 0 6px; color: var(--text-primary);">Foto a PDF</h3>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin: 0; max-width: 260px;">Captura páginas con tu cámara o impórtalas desde la galería</p>
       </div>
 
-      <div style="display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 280px; z-index: 2;">
-        <button id="camera-btn" class="btn-primary" style="padding: 13px 18px; font-size: 0.95rem; border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%;">
+      <div style="display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 280px; z-index: 2;">
+        <button id="camera-btn" class="btn-primary" style="padding: 14px 20px; font-size: 1rem; border-radius: 14px; display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
             <circle cx="12" cy="13" r="4"></circle>
@@ -221,7 +223,7 @@ function renderDropStage(container: HTMLElement): void {
           Tomar fotos
         </button>
 
-        <button id="gallery-btn" class="btn-secondary" style="padding: 13px 18px; font-size: 0.95rem; border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%;">
+        <button id="gallery-btn" class="btn-secondary" style="padding: 14px 20px; font-size: 1rem; border-radius: 14px; display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; background: var(--bg-secondary); border: 1px solid var(--border);">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
             <circle cx="8.5" cy="8.5" r="1.5"></circle>
