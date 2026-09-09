@@ -1,4 +1,5 @@
 import Sortable from 'sortablejs'
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 import { pdfService } from '../services/pdfService'
 import { showNotification, navigateTo } from '../router'
 
@@ -44,28 +45,106 @@ function renderCurrentStage(container: HTMLElement): void {
 }
 
 /* ═══════════════════════════════════════════
+   Cámara / Captura de Imagen
+   ═══════════════════════════════════════════ */
+
+async function takePhoto(): Promise<string | null> {
+  try {
+    const photo = await Camera.getPhoto({
+      quality: 92,
+      allowEditing: false,
+      resultType: CameraResultType.DataUrl,
+      source: CameraSource.Camera
+    })
+    return photo.dataUrl || null
+  } catch (err: any) {
+    const msg = err?.message || ''
+    if (msg.includes('cancelled') || msg.includes('User cancelled') || msg.includes('dismissed')) {
+      return null
+    }
+    console.warn('Camera plugin error, attempting fallback:', err)
+    return new Promise((resolve) => {
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept = 'image/*'
+      input.capture = 'environment'
+      input.onchange = async () => {
+        if (input.files && input.files[0]) {
+          const dataUrl = await readFileAsDataUrl(input.files[0])
+          resolve(dataUrl)
+        } else {
+          resolve(null)
+        }
+      }
+      input.click()
+    })
+  }
+}
+
+/* ═══════════════════════════════════════════
    ETAPA 0: Drop Zone Inicial
    ═══════════════════════════════════════════ */
 
 function renderDropStage(container: HTMLElement): void {
   container.innerHTML = `
     <input type="file" id="image-file-input" accept="image/*" multiple style="display:none" />
-    <div id="drop-zone" class="drop-zone">
-      <div class="drop-zone-content">
-        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <div id="drop-zone" class="drop-zone" style="display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 24px; padding: 36px 16px; min-height: 280px;">
+      <div class="drop-zone-content" style="pointer-events: none;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary); margin-bottom: 8px;">
           <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
           <circle cx="12" cy="13" r="4"></circle>
         </svg>
-        <h3>Foto a PDF</h3>
-        <p>Toca para seleccionar fotos de la galería</p>
+        <h3 style="font-size: 1.25rem; margin-bottom: 4px;">Foto a PDF</h3>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Captura con tu cámara o elige imágenes guardadas</p>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 280px; z-index: 2;">
+        <button id="camera-btn" class="btn-primary" style="padding: 13px 18px; font-size: 0.95rem; border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+            <circle cx="12" cy="13" r="4"></circle>
+          </svg>
+          Tomar foto
+        </button>
+
+        <button id="gallery-btn" class="btn-secondary" style="padding: 13px 18px; font-size: 0.95rem; border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+            <polyline points="21 15 16 10 5 21"></polyline>
+          </svg>
+          Elegir de galería
+        </button>
       </div>
     </div>
   `
 
   const dropZone = document.getElementById('drop-zone')!
   const fileInput = document.getElementById('image-file-input') as HTMLInputElement
+  const cameraBtn = document.getElementById('camera-btn')!
+  const galleryBtn = document.getElementById('gallery-btn')!
 
-  dropZone.addEventListener('click', (e) => {
+  cameraBtn.addEventListener('click', async (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const dataUrl = await takePhoto()
+    if (dataUrl) {
+      const page: ScannedPage = {
+        id: `page_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+        originalDataUrl: dataUrl,
+        processedDataUrl: dataUrl,
+        rotation: 0,
+        filter: 'raw',
+        crop: { x: 0, y: 0, width: 1, height: 1 }
+      }
+      scannedPages.push(page)
+      currentEditIndex = scannedPages.length - 1
+      currentStage = 'edit'
+      renderCurrentStage(container)
+    }
+  })
+
+  galleryBtn.addEventListener('click', (e) => {
     e.preventDefault()
     e.stopPropagation()
     fileInput.click()
@@ -564,14 +643,29 @@ function renderCascadeStage(container: HTMLElement): void {
       <input type="file" id="more-image-input" accept="image/*" multiple style="display:none" />
 
       <!-- Top Header -->
-      <div style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); background: var(--bg-secondary); flex-shrink: 0;">
-        <span style="font-size: 0.95rem; font-weight: 600;">
-          ${scannedPages.length} ${scannedPages.length === 1 ? 'página' : 'páginas'} en total
+      <div style="padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); background: var(--bg-secondary); flex-shrink: 0; gap: 8px;">
+        <span style="font-size: 0.9rem; font-weight: 600; white-space: nowrap;">
+          ${scannedPages.length} ${scannedPages.length === 1 ? 'pág' : 'págs'}
         </span>
 
-        <button id="add-more-photos-btn" class="btn-secondary" style="padding: 6px 12px; font-size: 0.85rem;">
-          + Añadir fotos
-        </button>
+        <div style="display: flex; gap: 8px;">
+          <button id="cascade-camera-btn" class="btn-primary" style="padding: 6px 12px; font-size: 0.82rem; display: flex; align-items: center; gap: 6px; border-radius: 8px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+              <circle cx="12" cy="13" r="4"></circle>
+            </svg>
+            + Cámara
+          </button>
+
+          <button id="add-more-photos-btn" class="btn-secondary" style="padding: 6px 12px; font-size: 0.82rem; display: flex; align-items: center; gap: 6px; border-radius: 8px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <circle cx="8.5" cy="8.5" r="1.5"></circle>
+              <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
+            + Galería
+          </button>
+        </div>
       </div>
 
       <div style="padding: 8px 16px; background: var(--bg-primary); border-bottom: 1px solid var(--border); font-size: 0.8rem; color: var(--text-muted); text-align: center;">
@@ -619,8 +713,30 @@ function renderCascadeStage(container: HTMLElement): void {
   const addMoreBtn = document.getElementById('add-more-photos-btn')!
   const clearAllBtn = document.getElementById('clear-all-btn')!
   const savePdfBtn = document.getElementById('save-pdf-btn') as HTMLButtonElement
+  const cascadeCameraBtn = document.getElementById('cascade-camera-btn')
 
-  // Add more photos
+  // Add more photos via camera
+  cascadeCameraBtn?.addEventListener('click', async (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const dataUrl = await takePhoto()
+    if (dataUrl) {
+      const newPage: ScannedPage = {
+        id: `page_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+        originalDataUrl: dataUrl,
+        processedDataUrl: dataUrl,
+        rotation: 0,
+        filter: 'raw',
+        crop: { x: 0, y: 0, width: 1, height: 1 }
+      }
+      scannedPages.push(newPage)
+      currentEditIndex = scannedPages.length - 1
+      currentStage = 'edit'
+      renderCurrentStage(container)
+    }
+  })
+
+  // Add more photos via gallery
   addMoreBtn.addEventListener('click', (e) => {
     e.preventDefault()
     e.stopPropagation()
