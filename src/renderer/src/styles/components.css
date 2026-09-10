@@ -686,7 +686,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 16px;
+  padding: 8px 16px;
+  min-height: 56px;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
@@ -823,14 +824,17 @@
 }
 
 .filter-btn {
-  padding: 6px 12px;
+  padding: 8px 14px;
+  min-height: 38px;
   background: transparent;
   border: none;
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
   transition: all var(--duration) var(--ease);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .filter-btn:hover {

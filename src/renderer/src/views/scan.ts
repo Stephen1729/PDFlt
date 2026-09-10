@@ -403,22 +403,22 @@ function renderEditStage(container: HTMLElement): void {
     <div class="scan-editor-container">
       <!-- Top Header -->
       <div class="scan-editor-header">
-        <button id="cancel-edit-btn" class="btn-secondary" style="padding: 6px 10px; font-size: 0.8rem;">
+        <button id="cancel-edit-btn" class="btn-secondary" style="padding: 8px 14px; font-size: 0.85rem; min-height: 40px; touch-action: manipulation;">
           Cancelar
         </button>
-        <span style="font-size: 0.9rem; font-weight: 600;">
+        <span style="font-size: 0.95rem; font-weight: 600;">
           Foto ${currentEditIndex + 1} de ${scannedPages.length}
         </span>
-        <div style="display: flex; align-items: center; gap: 6px;">
-          <button id="editor-camera-btn" class="btn-primary" style="padding: 6px 10px; font-size: 0.8rem; display: flex; align-items: center; gap: 4px; border-radius: 8px;" title="Tomar más fotos con la cámara">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <button id="editor-camera-btn" class="btn-primary" style="padding: 8px 14px; font-size: 0.85rem; display: flex; align-items: center; gap: 6px; border-radius: 8px; min-height: 40px; touch-action: manipulation;" title="Tomar más fotos con la cámara">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
               <circle cx="12" cy="13" r="4"></circle>
             </svg>
             + Cámara
           </button>
-          <button id="delete-current-btn" class="btn-icon" title="Eliminar foto" style="color: var(--error); width: 32px; height: 32px;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button id="delete-current-btn" class="btn-icon" title="Eliminar foto" style="color: var(--error); width: 40px; height: 40px; min-width: 40px; min-height: 40px; display: flex; align-items: center; justify-content: center; touch-action: manipulation;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="3 6 5 6 21 6"></polyline>
               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
             </svg>
@@ -443,8 +443,8 @@ function renderEditStage(container: HTMLElement): void {
       <div class="scan-editor-controls">
         <div class="scan-editor-toolbar">
           <!-- Rotate button -->
-          <button id="rotate-btn" class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem; display: flex; align-items: center; gap: 6px;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button id="rotate-btn" class="btn-secondary" style="padding: 8px 14px; font-size: 0.85rem; min-height: 38px; display: flex; align-items: center; gap: 6px; touch-action: manipulation;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="23 4 23 10 17 10"></polyline>
               <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
             </svg>
@@ -452,8 +452,8 @@ function renderEditStage(container: HTMLElement): void {
           </button>
 
           <!-- Crop toggle -->
-          <button id="crop-toggle-btn" class="btn-secondary ${isCropMode ? 'active' : ''}" style="padding: 6px 12px; font-size: 0.8rem; display: flex; align-items: center; gap: 6px;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button id="crop-toggle-btn" class="btn-secondary ${isCropMode ? 'active' : ''}" style="padding: 8px 14px; font-size: 0.85rem; min-height: 38px; display: flex; align-items: center; gap: 6px; touch-action: manipulation;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M6.13 1L6 16a2 2 0 0 0 2 2h15"></path>
               <path d="M1 6.13L16 6a2 2 0 0 1 2 2v15"></path>
             </svg>
@@ -461,7 +461,7 @@ function renderEditStage(container: HTMLElement): void {
           </button>
 
           ${currentPage.crop.x > 0 || currentPage.crop.y > 0 || currentPage.crop.width < 1 || currentPage.crop.height < 1 ? `
-            <button id="reset-crop-btn" class="btn-secondary" style="padding: 6px 10px; font-size: 0.8rem;" title="Restablecer recorte">
+            <button id="reset-crop-btn" class="btn-secondary" style="padding: 8px 12px; font-size: 0.85rem; min-height: 38px; touch-action: manipulation;" title="Restablecer recorte">
               Restablecer
             </button>
           ` : ''}
@@ -862,22 +862,22 @@ function renderCascadeStage(container: HTMLElement): void {
       <input type="file" id="more-image-input" accept="image/*" multiple style="display:none" />
 
       <!-- Top Header -->
-      <div style="padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); background: var(--bg-secondary); flex-shrink: 0; gap: 8px;">
-        <span style="font-size: 0.9rem; font-weight: 600; white-space: nowrap;">
+      <div style="padding: 8px 16px; min-height: 56px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); background: var(--bg-secondary); flex-shrink: 0; gap: 8px;">
+        <span style="font-size: 0.95rem; font-weight: 600; white-space: nowrap;">
           ${scannedPages.length} ${scannedPages.length === 1 ? 'pág' : 'págs'}
         </span>
 
         <div style="display: flex; gap: 8px;">
-          <button id="cascade-camera-btn" class="btn-primary" style="padding: 6px 12px; font-size: 0.82rem; display: flex; align-items: center; gap: 6px; border-radius: 8px;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button id="cascade-camera-btn" class="btn-primary" style="padding: 8px 14px; font-size: 0.85rem; min-height: 40px; display: flex; align-items: center; gap: 6px; border-radius: 8px; touch-action: manipulation;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
               <circle cx="12" cy="13" r="4"></circle>
             </svg>
             + Cámara
           </button>
 
-          <button id="add-more-photos-btn" class="btn-secondary" style="padding: 6px 12px; font-size: 0.82rem; display: flex; align-items: center; gap: 6px; border-radius: 8px;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button id="add-more-photos-btn" class="btn-secondary" style="padding: 8px 14px; font-size: 0.85rem; min-height: 40px; display: flex; align-items: center; gap: 6px; border-radius: 8px; touch-action: manipulation;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
               <circle cx="8.5" cy="8.5" r="1.5"></circle>
               <polyline points="21 15 16 10 5 21"></polyline>
