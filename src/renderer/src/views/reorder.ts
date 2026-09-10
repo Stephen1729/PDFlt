@@ -16,7 +16,6 @@ let currentFilePath: string | null = null
 let currentFileName: string = ''
 let currentPageOrder: number[] = []
 let originalPageCount = 0
-let chainedReturnTo: { view: any; payload?: any } | null = null
 
 /**
  * Renders the reorder view:
@@ -25,8 +24,6 @@ let chainedReturnTo: { view: any; payload?: any } | null = null
  * - Action bar with save/reset
  */
 export function renderReorder(container: HTMLElement, payload?: any): void {
-  chainedReturnTo = payload?.returnTo || null
-
   const isRestoring = payload?.restoreState && currentFilePath
 
   if (!isRestoring) {
@@ -40,21 +37,6 @@ export function renderReorder(container: HTMLElement, payload?: any): void {
     <!-- Drop zone (visible when no file) -->
     <div id="drop-zone" class="drop-zone">
       <div class="drop-zone-content">
-        ${
-          chainedReturnTo
-            ? `
-          <div style="width: 100%; display: flex; justify-content: flex-start; margin-bottom: 8px;">
-            <button id="chain-back-btn-drop" class="chain-back-btn" title="Volver">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="19" y1="12" x2="5" y2="12"></line>
-                <polyline points="12 19 5 12 12 5"></polyline>
-              </svg>
-              <span>Volver</span>
-            </button>
-          </div>
-        `
-            : ''
-        }
         <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/>
@@ -67,21 +49,6 @@ export function renderReorder(container: HTMLElement, payload?: any): void {
     <!-- Thumbnails (visible when file loaded) -->
     <div id="thumbnails-scroll" class="thumbnails-scroll" style="display:none">
       <div class="thumbnails-header" style="margin-bottom: 1rem;">
-        ${
-          chainedReturnTo
-            ? `
-          <div style="margin-bottom: 0.75rem;">
-            <button id="chain-back-btn" class="chain-back-btn" title="Volver a la herramienta anterior">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="19" y1="12" x2="5" y2="12"></line>
-                <polyline points="12 19 5 12 12 5"></polyline>
-              </svg>
-              <span>Volver</span>
-            </button>
-          </div>
-        `
-            : ''
-        }
         <h2 id="file-name" style="margin-bottom: 4px;"></h2>
         <p style="color: var(--text-muted); font-size: 0.9rem;">
           Arrastra las páginas para cambiar su orden.
@@ -156,14 +123,6 @@ function setupEventListeners(): void {
 
   // Save button
   document.getElementById('save-btn')?.addEventListener('click', handleSave)
-
-  const handleGoBack = () => {
-    if (chainedReturnTo) {
-      navigateTo(chainedReturnTo.view, chainedReturnTo.payload || { restoreState: true })
-    }
-  }
-  document.getElementById('chain-back-btn')?.addEventListener('click', handleGoBack)
-  document.getElementById('chain-back-btn-drop')?.addEventListener('click', handleGoBack)
 }
 
 async function handleOpenFile(): Promise<void> {

@@ -22,10 +22,13 @@ interface ScannedPage {
 let scannedPages: ScannedPage[] = []
 let currentEditIndex = 0
 let currentStage: 'drop' | 'edit' | 'cascade' = 'drop'
+let editOriginStage: 'drop' | 'cascade' = 'drop'
 let isCropMode = false
 let sortableInstance: Sortable | null = null
+let scanContainer: HTMLElement | null = null
 
 export function renderScan(container: HTMLElement, payload?: any): void {
+  scanContainer = container
   if (payload?.restoreState && scannedPages.length > 0) {
     currentStage = 'cascade'
     renderCurrentStage(container)
@@ -35,9 +38,45 @@ export function renderScan(container: HTMLElement, payload?: any): void {
   scannedPages = []
   currentEditIndex = 0
   currentStage = 'drop'
+  editOriginStage = 'drop'
   isCropMode = false
 
   renderCurrentStage(container)
+}
+
+export function handleScanBack(): boolean {
+  if (!scanContainer) return false
+
+  if (currentStage === 'drop') {
+    return false
+  }
+
+  if (currentStage === 'edit') {
+    if (isCropMode) {
+      isCropMode = false
+      renderEditStage(scanContainer)
+      return true
+    }
+    if (editOriginStage === 'cascade') {
+      currentStage = 'cascade'
+      renderCurrentStage(scanContainer)
+      return true
+    }
+    scannedPages = []
+    currentStage = 'drop'
+    renderCurrentStage(scanContainer)
+    return true
+  }
+
+  if (currentStage === 'cascade') {
+    currentStage = 'edit'
+    currentEditIndex = scannedPages.length > 0 ? scannedPages.length - 1 : 0
+    editOriginStage = 'drop'
+    renderCurrentStage(scanContainer)
+    return true
+  }
+
+  return false
 }
 
 function updateHeaderVisibility(stage: 'drop' | 'edit' | 'cascade'): void {
@@ -276,6 +315,7 @@ function renderDropStage(container: HTMLElement): void {
       if (scannedPages.length > 0) {
         currentEditIndex = 0
         currentStage = 'edit'
+        editOriginStage = 'drop'
         renderCurrentStage(container)
       }
     })
@@ -341,6 +381,7 @@ async function loadInitialImages(files: File[], container: HTMLElement): Promise
   if (scannedPages.length > 0) {
     currentEditIndex = 0
     currentStage = 'edit'
+    editOriginStage = 'drop'
     renderCurrentStage(container)
   }
 }
@@ -507,8 +548,12 @@ function setupEditStageListeners(container: HTMLElement, currentPage: ScannedPag
   document.getElementById('cancel-edit-btn')?.addEventListener('click', () => {
     resizeObserver.disconnect()
     window.removeEventListener('resize', adjustImageBounds)
-    scannedPages = []
-    currentStage = 'drop'
+    if (editOriginStage === 'cascade') {
+      currentStage = 'cascade'
+    } else {
+      scannedPages = []
+      currentStage = 'drop'
+    }
     renderCurrentStage(container)
   })
 
@@ -983,6 +1028,7 @@ function renderCascadeStage(container: HTMLElement): void {
       e.stopPropagation()
       currentEditIndex = parseInt((btn as HTMLElement).dataset.index || '0', 10)
       currentStage = 'edit'
+      editOriginStage = 'cascade'
       renderCurrentStage(container)
     })
   })

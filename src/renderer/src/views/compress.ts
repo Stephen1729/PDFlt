@@ -12,11 +12,8 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
 let currentFileInfo: PdfFileInfo | null = null
 let selectedLevel: CompressionLevel = 'recommended'
 let isCompressing = false
-let chainedReturnTo: { view: any; payload?: any } | null = null
 
 export function renderCompress(container: HTMLElement, payload?: any): void {
-  chainedReturnTo = payload?.returnTo || null
-
   const isRestoring = payload?.restoreState && currentFileInfo
 
   if (!isRestoring) {
@@ -31,21 +28,6 @@ export function renderCompress(container: HTMLElement, payload?: any): void {
   container.innerHTML = `
     <div id="drop-zone" class="drop-zone">
       <div class="drop-zone-content">
-        ${
-          chainedReturnTo
-            ? `
-          <div style="width: 100%; display: flex; justify-content: flex-start; margin-bottom: 8px;">
-            <button id="chain-back-btn-drop" class="chain-back-btn" title="Volver">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="19" y1="12" x2="5" y2="12"></line>
-                <polyline points="12 19 5 12 12 5"></polyline>
-              </svg>
-              <span>Volver</span>
-            </button>
-          </div>
-        `
-            : ''
-        }
         <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
           <polyline points="3.29 7 12 12 20.71 7"></polyline>
@@ -59,22 +41,6 @@ export function renderCompress(container: HTMLElement, payload?: any): void {
 
     <div id="compress-workspace" style="display:none; width: 100%; max-width: 800px; margin: 0 auto; padding: 1.5rem 1rem; overflow-y: auto; flex: 1;">
       
-      ${
-        chainedReturnTo
-          ? `
-        <div style="display: flex; align-items: center; margin-bottom: 1rem;">
-          <button id="chain-back-btn" class="chain-back-btn" title="Volver a la herramienta anterior">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="19" y1="12" x2="5" y2="12"></line>
-              <polyline points="12 19 5 12 12 5"></polyline>
-            </svg>
-            <span>Volver</span>
-          </button>
-        </div>
-      `
-          : ''
-      }
-
       <!-- Info Header -->
       <div class="file-info-header" style="text-align: center; margin-bottom: 2rem;">
         <h2 id="file-name" style="margin-bottom: 8px;"></h2>
@@ -216,14 +182,6 @@ function setupEventListeners(): void {
 
   document.getElementById('compress-btn')?.addEventListener('click', () => handleCompress(true)) // Always save to temp first to show stats!
   document.getElementById('save-btn')?.addEventListener('click', () => handleSaveFinal())
-
-  const handleGoBack = () => {
-    if (chainedReturnTo) {
-      navigateTo(chainedReturnTo.view, chainedReturnTo.payload || { restoreState: true })
-    }
-  }
-  document.getElementById('chain-back-btn')?.addEventListener('click', handleGoBack)
-  document.getElementById('chain-back-btn-drop')?.addEventListener('click', handleGoBack)
 }
 
 async function handleOpenFile(): Promise<void> {
@@ -241,7 +199,6 @@ function loadPdf(fileInfo: PdfFileInfo): void {
   document.getElementById('progress-container')!.style.display = 'none'
   document.getElementById('result-container')!.style.display = 'none'
   document.getElementById('save-btn')!.style.display = 'none'
-  document.getElementById('chain-actions')!.style.display = 'none'
   document.getElementById('compress-btn')!.style.display = 'inline-flex'
   ;(document.getElementById('compress-btn') as HTMLButtonElement).disabled = false
   

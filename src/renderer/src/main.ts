@@ -1,7 +1,32 @@
 import './styles/theme.css'
 import './styles/global.css'
 import './styles/components.css'
-import { navigateTo, ViewName } from './router'
+import { App } from '@capacitor/app'
+import { navigateTo, triggerBack, ViewName } from './router'
+
+// Subtle Header back button click
+document.getElementById('header-back-btn')?.addEventListener('click', () => {
+  triggerBack()
+})
+
+// Native Android hardware & gesture back button handling
+try {
+  App.addListener('backButton', () => {
+    const handled = triggerBack()
+    if (!handled) {
+      App.exitApp()
+    }
+  })
+} catch (err) {
+  console.warn('Capacitor App plugin not supported in this environment', err)
+}
+
+// Keyboard Escape shortcut for testing/desktop
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    triggerBack()
+  }
+})
 
 // Setup bottom-nav event listeners
 const moreMenuContainer = document.getElementById('more-menu-container')
@@ -56,4 +81,5 @@ window.addEventListener('drop', (e) => e.preventDefault())
 
 // Boot the app — show scan view by default
 navigateTo('scan')
+
 

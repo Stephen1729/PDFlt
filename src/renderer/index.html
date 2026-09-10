@@ -21,11 +21,19 @@
     
     <div id="app">
       <div class="mobile-header">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>
-          <path d="M14 3v5h5M16 13H8M16 17H8M10 9H8"/>
-        </svg>
-        PDFlt
+        <button id="header-back-btn" class="header-back-btn" style="display: none;" title="Volver" aria-label="Volver">
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+          </svg>
+        </button>
+        <div class="mobile-header-brand">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>
+            <path d="M14 3v5h5M16 13H8M16 17H8M10 9H8"/>
+          </svg>
+          PDFlt
+        </div>
       </div>
       
       <div id="main-content" class="main-content"></div>

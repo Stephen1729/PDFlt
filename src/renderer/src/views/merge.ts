@@ -5,14 +5,11 @@ import type { PdfFileInfo } from '../../../shared/types'
 
 // ── Module state ──
 let selectedFiles: PdfFileInfo[] = []
-let chainedReturnTo: { view: any; payload?: any } | null = null
 
 /**
  * Renders the merge view
  */
 export function renderMerge(container: HTMLElement, payload?: any): void {
-  chainedReturnTo = payload?.returnTo || null
-
   const isRestoring = payload?.restoreState && selectedFiles.length > 0
 
   if (!isRestoring) {
@@ -27,21 +24,6 @@ export function renderMerge(container: HTMLElement, payload?: any): void {
     <!-- Drop zone for initial empty state -->
     <div id="drop-zone" class="drop-zone">
       <div class="drop-zone-content">
-        ${
-          chainedReturnTo
-            ? `
-          <div style="width: 100%; display: flex; justify-content: flex-start; margin-bottom: 8px;">
-            <button id="chain-back-btn-drop" class="chain-back-btn" title="Volver">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="19" y1="12" x2="5" y2="12"></line>
-                <polyline points="12 19 5 12 12 5"></polyline>
-              </svg>
-              <span>Volver</span>
-            </button>
-          </div>
-        `
-            : ''
-        }
         <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
@@ -55,21 +37,6 @@ export function renderMerge(container: HTMLElement, payload?: any): void {
 
     <!-- File list area (visible when files loaded) -->
     <div id="file-list-container" style="display:none; padding: 1rem; width: 100%; max-width: 800px; margin: 0 auto; flex: 1; overflow-y: auto;">
-      ${
-        chainedReturnTo
-          ? `
-        <div style="display: flex; align-items: center; margin-bottom: 0.75rem;">
-          <button id="chain-back-btn" class="chain-back-btn" title="Volver a la herramienta anterior">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="19" y1="12" x2="5" y2="12"></line>
-              <polyline points="12 19 5 12 12 5"></polyline>
-            </svg>
-            <span>Volver</span>
-          </button>
-        </div>
-      `
-          : ''
-      }
       <h2 style="margin-bottom: 4px;">Unir PDFs</h2>
       <p style="margin-bottom: 1rem; color: var(--text-muted);">Toca y arrastra los archivos para reordenarlos.</p>
       <div id="file-list" style="display: flex; flex-direction: column; gap: 0.5rem;"></div>
@@ -137,14 +104,6 @@ function setupEventListeners(): void {
 
   // Merge button
   document.getElementById('merge-btn')?.addEventListener('click', handleMerge)
-
-  const handleGoBack = () => {
-    if (chainedReturnTo) {
-      navigateTo(chainedReturnTo.view, chainedReturnTo.payload || { restoreState: true })
-    }
-  }
-  document.getElementById('chain-back-btn')?.addEventListener('click', handleGoBack)
-  document.getElementById('chain-back-btn-drop')?.addEventListener('click', handleGoBack)
 }
 
 async function handleOpenFiles(): Promise<void> {

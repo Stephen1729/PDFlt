@@ -14,11 +14,8 @@ let currentFilePath: string | null = null
 let currentFileName: string = ''
 let totalPageCount = 0
 let selectedPages: Set<number> = new Set()
-let chainedReturnTo: { view: any; payload?: any } | null = null
 
 export function renderSplit(container: HTMLElement, payload?: any): void {
-  chainedReturnTo = payload?.returnTo || null
-
   const isRestoring = payload?.restoreState && currentFilePath
 
   if (!isRestoring) {
@@ -31,21 +28,6 @@ export function renderSplit(container: HTMLElement, payload?: any): void {
   container.innerHTML = `
     <div id="drop-zone" class="drop-zone">
       <div class="drop-zone-content">
-        ${
-          chainedReturnTo
-            ? `
-          <div style="width: 100%; display: flex; justify-content: flex-start; margin-bottom: 8px;">
-            <button id="chain-back-btn-drop" class="chain-back-btn" title="Volver">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="19" y1="12" x2="5" y2="12"></line>
-                <polyline points="12 19 5 12 12 5"></polyline>
-              </svg>
-              <span>Volver</span>
-            </button>
-          </div>
-        `
-            : ''
-        }
         <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>
           <path d="M14 3v5h5M16 13H8M16 17H8M10 9H8"/>
@@ -59,21 +41,6 @@ export function renderSplit(container: HTMLElement, payload?: any): void {
     <!-- Thumbnails scroll area (visible when file loaded) -->
     <div id="thumbnails-scroll" class="thumbnails-scroll" style="display:none">
       <div class="thumbnails-header">
-        ${
-          chainedReturnTo
-            ? `
-          <div style="margin-bottom: 0.75rem;">
-            <button id="chain-back-btn" class="chain-back-btn" title="Volver a la herramienta anterior">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="19" y1="12" x2="5" y2="12"></line>
-                <polyline points="12 19 5 12 12 5"></polyline>
-              </svg>
-              <span>Volver</span>
-            </button>
-          </div>
-        `
-            : ''
-        }
         <h2 id="file-name" style="margin-bottom: 4px;"></h2>
         <p style="color: var(--text-muted); font-size: 0.9rem;">
           Toca las páginas que deseas extraer al nuevo PDF.
@@ -153,14 +120,6 @@ function setupEventListeners(): void {
   document.getElementById('extract-btn')?.addEventListener('click', handleExtract)
   document.getElementById('select-all-btn')?.addEventListener('click', handleSelectAll)
   document.getElementById('invert-btn')?.addEventListener('click', handleInvertSelection)
-
-  const handleGoBack = () => {
-    if (chainedReturnTo) {
-      navigateTo(chainedReturnTo.view, chainedReturnTo.payload || { restoreState: true })
-    }
-  }
-  document.getElementById('chain-back-btn')?.addEventListener('click', handleGoBack)
-  document.getElementById('chain-back-btn-drop')?.addEventListener('click', handleGoBack)
 }
 
 async function handleOpenFile(): Promise<void> {
@@ -268,12 +227,9 @@ function updateSelectionInfo(): void {
   const count = selectedPages.size
   const infoSpan = document.getElementById('selection-info')!
   const btn = document.getElementById('extract-btn') as HTMLButtonElement
-  const chainBtns = document.querySelectorAll('.chain-actions button')
-
   if (count === 0) {
     infoSpan.textContent = 'Selecciona las páginas a extraer'
     btn.disabled = true
-    chainBtns.forEach(b => (b as HTMLButtonElement).disabled = true)
     btn.innerHTML = `
       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
