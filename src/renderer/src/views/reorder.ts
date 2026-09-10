@@ -1,4 +1,4 @@
-import { pdfService } from '../services/pdfService'
+import { pdfService, formatFileSize } from '../services/pdfService'
 import * as pdfjsLib from 'pdfjs-dist'
 import Sortable from 'sortablejs'
 import { navigateTo, showNotification } from '../router'
@@ -16,6 +16,7 @@ let currentFilePath: string | null = null
 let currentFileName: string = ''
 let currentPageOrder: number[] = []
 let originalPageCount = 0
+let chainedReturnTo: { view: any; payload?: any } | null = null
 
 /**
  * Renders the reorder view:
@@ -24,16 +25,36 @@ let originalPageCount = 0
  * - Action bar with save/reset
  */
 export function renderReorder(container: HTMLElement, payload?: any): void {
-  // Reset state
-  currentFilePath = null
-  currentFileName = ''
-  currentPageOrder = []
-  originalPageCount = 0
+  chainedReturnTo = payload?.returnTo || null
+
+  const isRestoring = payload?.restoreState && currentFilePath
+
+  if (!isRestoring) {
+    currentFilePath = null
+    currentFileName = ''
+    currentPageOrder = []
+    originalPageCount = 0
+  }
 
   container.innerHTML = `
     <!-- Drop zone (visible when no file) -->
     <div id="drop-zone" class="drop-zone">
       <div class="drop-zone-content">
+        ${
+          chainedReturnTo
+            ? `
+          <div style="width: 100%; display: flex; justify-content: flex-start; margin-bottom: 8px;">
+            <button id="chain-back-btn-drop" class="chain-back-btn" title="Volver">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+              </svg>
+              <span>Volver</span>
+            </button>
+          </div>
+        `
+            : ''
+        }
         <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/>
@@ -46,6 +67,21 @@ export function renderReorder(container: HTMLElement, payload?: any): void {
     <!-- Thumbnails (visible when file loaded) -->
     <div id="thumbnails-scroll" class="thumbnails-scroll" style="display:none">
       <div class="thumbnails-header" style="margin-bottom: 1rem;">
+        ${
+          chainedReturnTo
+            ? `
+          <div style="margin-bottom: 0.75rem;">
+            <button id="chain-back-btn" class="chain-back-btn" title="Volver a la herramienta anterior">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+              </svg>
+              <span>Volver</span>
+            </button>
+          </div>
+        `
+            : ''
+        }
         <h2 id="file-name" style="margin-bottom: 4px;"></h2>
         <p style="color: var(--text-muted); font-size: 0.9rem;">
           Arrastra las páginas para cambiar su orden.
@@ -68,12 +104,6 @@ export function renderReorder(container: HTMLElement, payload?: any): void {
           </svg>
           Guardar PDF
         </button>
-        <div class="chain-actions">
-          <span style="color:var(--text-muted); font-size: 0.85rem">o continuar en:</span>
-          <button id="reorder-to-merge" class="btn-secondary" title="Unir">Unir</button>
-          <button id="reorder-to-split" class="btn-secondary" title="Separar">Separar</button>
-          <button id="reorder-to-compress" class="btn-secondary" title="Comprimir">Comprimir</button>
-        </div>
       </div>
     </div>
   `
@@ -124,11 +154,16 @@ function setupEventListeners(): void {
   // Reset button
   document.getElementById('reset-btn')!.addEventListener('click', handleReset)
 
-  // Save buttons
-  document.getElementById('save-btn')?.addEventListener('click', () => handleSave(false))
-  document.getElementById('reorder-to-merge')?.addEventListener('click', () => handleSave(true, 'merge'))
-  document.getElementById('reorder-to-split')?.addEventListener('click', () => handleSave(true, 'split'))
-  document.getElementById('reorder-to-compress')?.addEventListener('click', () => handleSave(true, 'compress'))
+  // Save button
+  document.getElementById('save-btn')?.addEventListener('click', handleSave)
+
+  const handleGoBack = () => {
+    if (chainedReturnTo) {
+      navigateTo(chainedReturnTo.view, chainedReturnTo.payload || { restoreState: true })
+    }
+  }
+  document.getElementById('chain-back-btn')?.addEventListener('click', handleGoBack)
+  document.getElementById('chain-back-btn-drop')?.addEventListener('click', handleGoBack)
 }
 
 async function handleOpenFile(): Promise<void> {
@@ -296,48 +331,59 @@ function handleReset(): void {
   updatePageOrder()
 }
 
-/**
- * Saves the reordered PDF.
- */
-async function handleSave(toTemp: boolean, targetView?: any): Promise<void> {
+async function handleSave(): Promise<void> {
   if (!currentFilePath) return
 
-  let fileName: string | null = null
-  if (!toTemp) {
-    const base = currentFileName ? currentFileName.replace(/\.pdf$/i, '') : 'documento'
-    const defaultName = `${base}_reordenado.pdf`
-    fileName = await pdfService.saveFileDialog(defaultName, 'Guardar PDF Reordenado')
-    if (!fileName) return // User cancelled
-  }
-
-  const btnId = toTemp ? `reorder-to-${targetView}` : 'save-btn'
-  const saveBtn = document.getElementById(btnId) as HTMLButtonElement
+  const saveBtn = document.getElementById('save-btn') as HTMLButtonElement
   const originalText = saveBtn.innerHTML
   
-  document.querySelectorAll('#action-bar button').forEach(b => (b as HTMLButtonElement).disabled = true)
-  saveBtn.innerHTML = `<div class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block"></div>`
+  document.querySelectorAll('#action-bar button').forEach((b) => ((b as HTMLButtonElement).disabled = true))
+  saveBtn.innerHTML = `<div class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block"></div> Preparando...`
 
   try {
-    const result = await pdfService.reorderPages(currentFilePath, currentPageOrder, fileName || undefined, toTemp)
+    const tempResult = await pdfService.reorderPages(currentFilePath, currentPageOrder, undefined, true)
 
-    if (result.success && result.outputPath) {
-      if (toTemp && targetView) {
-        const fileInfo = await pdfService.getFileInfo(result.outputPath)
-        if (fileInfo) {
-          showNotification('Redirigiendo...', 'success')
-          navigateTo(targetView, { fileInfo })
-        }
+    if (!tempResult.success || !tempResult.outputPath) {
+      showNotification(tempResult.error || 'Error al reordenar páginas', 'error')
+      return
+    }
+
+    const fileInfo = await pdfService.getFileInfo(tempResult.outputPath)
+    const fileSize = fileInfo ? formatFileSize(fileInfo.fileSizeBytes) : ''
+
+    const base = currentFileName ? currentFileName.replace(/\.pdf$/i, '') : 'documento'
+    const defaultName = `${base}_reordenado.pdf`
+
+    const dialogResult = await pdfService.promptSaveDialog({
+      defaultName,
+      title: 'Guardar PDF Reordenado',
+      fileSize,
+      currentView: 'reorder'
+    })
+
+    if (!dialogResult) return // user cancelled
+
+    if (dialogResult.action === 'save') {
+      const copied = await pdfService.copyFile(tempResult.outputPath, dialogResult.fileName)
+      if (copied) {
+        showNotification(`PDF guardado correctamente como ${dialogResult.fileName} (${tempResult.pageCount} páginas)`, 'success')
       } else {
-        showNotification(`PDF guardado correctamente como ${fileName} (${result.pageCount} páginas)`, 'success')
+        showNotification('Error al guardar el archivo', 'error')
       }
-    } else if (result.error !== 'Operación cancelada') {
-      showNotification(result.error || 'Error desconocido al guardar', 'error')
+    } else if (dialogResult.action === 'chain') {
+      if (fileInfo) {
+        showNotification('Redirigiendo...', 'success')
+        navigateTo(dialogResult.targetView, {
+          fileInfo,
+          returnTo: { view: 'reorder', payload: { restoreState: true } }
+        })
+      }
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     showNotification(`Error: ${message}`, 'error')
   } finally {
-    document.querySelectorAll('#action-bar button').forEach(b => (b as HTMLButtonElement).disabled = false)
+    document.querySelectorAll('#action-bar button').forEach((b) => ((b as HTMLButtonElement).disabled = false))
     saveBtn.innerHTML = originalText
   }
 }

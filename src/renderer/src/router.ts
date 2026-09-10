@@ -24,16 +24,21 @@ export function navigateTo(view: ViewName, payload?: any): void {
     }
   })
 
+  // Ensure header is visible by default unless scanner manages it
+  if (view !== 'scan') {
+    document.body.classList.remove('hide-mobile-header')
+  }
+
   // Render view immediately for maximum responsiveness
   switch (view) {
     case 'scan':
-      renderScan(container)
+      renderScan(container, payload)
       break
     case 'reorder':
       renderReorder(container, payload)
       break
     case 'merge':
-      renderMerge(container)
+      renderMerge(container, payload)
       break
     case 'split':
       renderSplit(container, payload)

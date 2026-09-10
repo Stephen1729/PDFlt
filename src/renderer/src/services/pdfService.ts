@@ -235,8 +235,17 @@ export const pdfService = {
     }
   },
   
-  async saveFileDialog(defaultName: string, title = 'Guardar PDF'): Promise<string | null> {
-    return await promptSaveFileName(defaultName, title)
+  async saveFileDialog(
+    defaultName: string,
+    title = 'Guardar PDF',
+    fileSize?: string,
+    currentView?: ChainViewTarget
+  ): Promise<string | null> {
+    return await promptSaveFileName(defaultName, title, fileSize, currentView)
+  },
+
+  async promptSaveDialog(options: SaveModalOptions): Promise<SaveModalResult> {
+    return await promptSaveDialog(options)
   },
   
   async createPdfFromImages(
@@ -321,9 +330,17 @@ export const pdfService = {
     }
   },
 
-  async copyFile(sourcePath: string, destinationPath: string): Promise<boolean> {
+    async copyFile(sourcePath: string, destinationPath: string): Promise<boolean> {
     try {
-      const b64 = fileCache.get(sourcePath)
+      let b64 = fileCache.get(sourcePath)
+      if (!b64) {
+        try {
+          const res = await Filesystem.readFile({ path: sourcePath, directory: Directory.Documents })
+          b64 = typeof res.data === 'string' ? res.data : ''
+        } catch {
+          // not found in filesystem
+        }
+      }
       if (!b64) return false
       
       const fileName = destinationPath.toLowerCase().endsWith('.pdf') ? destinationPath : `${destinationPath}.pdf`
@@ -354,9 +371,70 @@ export const pdfService = {
   }
 }
 
-export function promptSaveFileName(defaultName: string, title = 'Guardar PDF'): Promise<string | null> {
+export type ChainViewTarget = 'scan' | 'compress' | 'merge' | 'split' | 'reorder'
+
+export interface SaveModalOptions {
+  defaultName: string
+  title?: string
+  fileSize?: string
+  currentView?: ChainViewTarget
+}
+
+export type SaveModalResult =
+  | { action: 'save'; fileName: string }
+  | { action: 'chain'; targetView: ChainViewTarget }
+  | null
+
+export function formatFileSize(bytes: number, decimals = 2): string {
+  if (!bytes || bytes <= 0) return '0 Bytes'
+  const k = 1024
+  const dm = decimals < 0 ? 0 : decimals
+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i]
+}
+
+interface ChainButtonDef {
+  id: ChainViewTarget
+  label: string
+  icon: string
+}
+
+const ALL_CHAIN_BUTTONS: ChainButtonDef[] = [
+  {
+    id: 'compress',
+    label: 'Comprimir',
+    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.29 7 12 12 20.71 7"></polyline><line x1="12" y1="22" x2="12" y2="12"></line></svg>`
+  },
+  {
+    id: 'merge',
+    label: 'Unir',
+    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>`
+  },
+  {
+    id: 'split',
+    label: 'Separar',
+    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><line x1="20" y1="4" x2="8.12" y2="15.88"></line><line x1="14.47" y1="14.48" x2="20" y2="20"></line><line x1="8.12" y1="8.12" x2="12" y2="12"></line></svg>`
+  },
+  {
+    id: 'reorder',
+    label: 'Reordenar',
+    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>`
+  }
+]
+
+export function promptSaveDialog(options: SaveModalOptions): Promise<SaveModalResult> {
   return new Promise((resolve) => {
+    const { defaultName, title = 'Guardar PDF', fileSize, currentView } = options
     const initialBase = defaultName.replace(/\.pdf$/i, '').trim() || 'documento'
+
+    // Filter chain actions: exclude the current tool and tools not applicable
+    const chainButtons = ALL_CHAIN_BUTTONS.filter((btn) => {
+      if (btn.id === currentView) return false
+      // For scanner, reorder is already available on Stage 2 grid
+      if (currentView === 'scan' && btn.id === 'reorder') return false
+      return true
+    })
 
     const overlay = document.createElement('div')
     overlay.className = 'save-modal-overlay'
@@ -372,11 +450,50 @@ export function promptSaveFileName(defaultName: string, title = 'Guardar PDF'): 
           </button>
         </div>
         <div class="save-modal-body">
+          ${
+            fileSize
+              ? `
+            <div class="save-modal-size-badge">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+                <polyline points="10 9 9 9 8 9"></polyline>
+              </svg>
+              <span>Tamaño del archivo: <strong>${fileSize}</strong></span>
+            </div>
+          `
+              : ''
+          }
+
           <label for="save-filename-input">Nombre del archivo:</label>
           <div class="save-modal-input-group">
             <input type="text" id="save-filename-input" value="${initialBase}" autocomplete="off" autocapitalize="none" spellcheck="false" />
             <span class="save-modal-ext">.pdf</span>
           </div>
+
+          ${
+            chainButtons.length > 0
+              ? `
+            <div class="save-modal-chain-section">
+              <div class="save-modal-chain-title">o continuar editando en:</div>
+              <div class="save-modal-chain-buttons">
+                ${chainButtons
+                  .map(
+                    (btn) => `
+                  <button type="button" class="save-modal-chain-btn" data-target="${btn.id}">
+                    ${btn.icon}
+                    <span>${btn.label}</span>
+                  </button>
+                `
+                  )
+                  .join('')}
+              </div>
+            </div>
+          `
+              : ''
+          }
         </div>
         <div class="save-modal-footer">
           <button id="save-modal-cancel" class="btn-secondary">Cancelar</button>
@@ -393,7 +510,7 @@ export function promptSaveFileName(defaultName: string, title = 'Guardar PDF'): 
     const closeBtn = overlay.querySelector('.save-modal-close') as HTMLButtonElement
 
     let isClosed = false
-    const close = (result: string | null) => {
+    const close = (result: SaveModalResult) => {
       if (isClosed) return
       isClosed = true
       overlay.remove()
@@ -405,12 +522,23 @@ export function promptSaveFileName(defaultName: string, title = 'Guardar PDF'): 
       val = val.replace(/[\\/:*?"<>|]/g, '').trim()
       val = val.replace(/\.pdf$/i, '').trim()
       if (!val) val = initialBase
-      close(`${val}.pdf`)
+      close({ action: 'save', fileName: `${val}.pdf` })
     }
 
     confirmBtn.addEventListener('click', confirm)
     cancelBtn.addEventListener('click', () => close(null))
     closeBtn.addEventListener('click', () => close(null))
+
+    overlay.querySelectorAll('.save-modal-chain-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        const target = (btn as HTMLElement).dataset.target as ChainViewTarget
+        if (target) {
+          close({ action: 'chain', targetView: target })
+        }
+      })
+    })
 
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) close(null)
@@ -431,6 +559,16 @@ export function promptSaveFileName(defaultName: string, title = 'Guardar PDF'): 
       input.select()
     }, 50)
   })
+}
+
+export async function promptSaveFileName(
+  defaultName: string,
+  title = 'Guardar PDF',
+  fileSize?: string,
+  currentView?: ChainViewTarget
+): Promise<string | null> {
+  const result = await promptSaveDialog({ defaultName, title, fileSize, currentView })
+  return result?.action === 'save' ? result.fileName : null
 }
 
 async function saveResult(

@@ -57,7 +57,7 @@ export interface ElectronAPI {
   compressStructural: (filePath: string, toTemp?: boolean) => Promise<OperationResult>
   assembleCompressedPdf: (imagesBase64: string[], dimensions: PageDimension[], toTemp?: boolean) => Promise<OperationResult>
   copyFile: (source: string, destination: string) => Promise<boolean>
-  saveFileDialog: (defaultName: string) => Promise<string | null>
+  saveFileDialog: (defaultName: string, title?: string, fileSize?: string, currentView?: any) => Promise<string | null>
   
   getAppVersion: () => Promise<string>
   checkForUpdates: () => Promise<void>

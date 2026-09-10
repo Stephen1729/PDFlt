@@ -1,4 +1,4 @@
-import { pdfService } from '../services/pdfService'
+import { pdfService, formatFileSize } from '../services/pdfService'
 import * as pdfjsLib from 'pdfjs-dist'
 import { showNotification, navigateTo } from '../router'
 import type { PdfFileInfo } from '../../../shared/types'
@@ -14,17 +14,38 @@ let currentFilePath: string | null = null
 let currentFileName: string = ''
 let totalPageCount = 0
 let selectedPages: Set<number> = new Set()
+let chainedReturnTo: { view: any; payload?: any } | null = null
 
 export function renderSplit(container: HTMLElement, payload?: any): void {
-  // Reset state
-  currentFilePath = null
-  currentFileName = ''
-  totalPageCount = 0
-  selectedPages = new Set()
+  chainedReturnTo = payload?.returnTo || null
+
+  const isRestoring = payload?.restoreState && currentFilePath
+
+  if (!isRestoring) {
+    currentFilePath = null
+    currentFileName = ''
+    totalPageCount = 0
+    selectedPages = new Set()
+  }
 
   container.innerHTML = `
     <div id="drop-zone" class="drop-zone">
       <div class="drop-zone-content">
+        ${
+          chainedReturnTo
+            ? `
+          <div style="width: 100%; display: flex; justify-content: flex-start; margin-bottom: 8px;">
+            <button id="chain-back-btn-drop" class="chain-back-btn" title="Volver">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+              </svg>
+              <span>Volver</span>
+            </button>
+          </div>
+        `
+            : ''
+        }
         <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>
           <path d="M14 3v5h5M16 13H8M16 17H8M10 9H8"/>
@@ -38,6 +59,21 @@ export function renderSplit(container: HTMLElement, payload?: any): void {
     <!-- Thumbnails scroll area (visible when file loaded) -->
     <div id="thumbnails-scroll" class="thumbnails-scroll" style="display:none">
       <div class="thumbnails-header">
+        ${
+          chainedReturnTo
+            ? `
+          <div style="margin-bottom: 0.75rem;">
+            <button id="chain-back-btn" class="chain-back-btn" title="Volver a la herramienta anterior">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+              </svg>
+              <span>Volver</span>
+            </button>
+          </div>
+        `
+            : ''
+        }
         <h2 id="file-name" style="margin-bottom: 4px;"></h2>
         <p style="color: var(--text-muted); font-size: 0.9rem;">
           Toca las páginas que deseas extraer al nuevo PDF.
@@ -60,21 +96,23 @@ export function renderSplit(container: HTMLElement, payload?: any): void {
           </svg>
           Guardar PDF
         </button>
-        <div class="chain-actions">
-          <span style="color:var(--text-muted); font-size: 0.85rem">o continuar en:</span>
-          <button id="split-to-merge" class="btn-secondary" title="Unir" disabled>Unir</button>
-          <button id="split-to-reorder" class="btn-secondary" title="Reordenar" disabled>Reordenar</button>
-          <button id="split-to-compress" class="btn-secondary" title="Comprimir" disabled>Comprimir</button>
-        </div>
       </div>
     </div>
   `
 
   setupEventListeners()
 
-  // Handle chaining
+  // Handle chaining or restoring
   if (payload && payload.fileInfo) {
     loadPdf(payload.fileInfo)
+  } else if (isRestoring && currentFilePath) {
+    loadPdf({
+      filePath: currentFilePath,
+      fileName: currentFileName,
+      pageCount: totalPageCount,
+      fileSizeBytes: 0,
+      isEncrypted: false
+    })
   }
 }
 
@@ -111,13 +149,18 @@ function setupEventListeners(): void {
     }
   })
 
-  // Extract buttons
-  document.getElementById('extract-btn')?.addEventListener('click', () => handleExtract(false))
-  document.getElementById('split-to-merge')?.addEventListener('click', () => handleExtract(true, 'merge'))
-  document.getElementById('split-to-reorder')?.addEventListener('click', () => handleExtract(true, 'reorder'))
-  document.getElementById('split-to-compress')?.addEventListener('click', () => handleExtract(true, 'compress'))
+  // Extract button
+  document.getElementById('extract-btn')?.addEventListener('click', handleExtract)
   document.getElementById('select-all-btn')?.addEventListener('click', handleSelectAll)
   document.getElementById('invert-btn')?.addEventListener('click', handleInvertSelection)
+
+  const handleGoBack = () => {
+    if (chainedReturnTo) {
+      navigateTo(chainedReturnTo.view, chainedReturnTo.payload || { restoreState: true })
+    }
+  }
+  document.getElementById('chain-back-btn')?.addEventListener('click', handleGoBack)
+  document.getElementById('chain-back-btn-drop')?.addEventListener('click', handleGoBack)
 }
 
 async function handleOpenFile(): Promise<void> {
@@ -295,46 +338,60 @@ function handleInvertSelection(): void {
   updateSelectionInfo()
 }
 
-async function handleExtract(toTemp: boolean, targetView?: any): Promise<void> {
+async function handleExtract(): Promise<void> {
   if (!currentFilePath || selectedPages.size === 0) return
 
-  let fileName: string | null = null
-  if (!toTemp) {
-    const base = currentFileName ? currentFileName.replace(/\.pdf$/i, '') : 'documento'
-    const defaultName = `${base}_extraido.pdf`
-    fileName = await pdfService.saveFileDialog(defaultName, 'Guardar PDF Extraído')
-    if (!fileName) return // User cancelled
-  }
-
-  const btnId = toTemp ? `split-to-${targetView}` : 'extract-btn'
-  const btn = document.getElementById(btnId) as HTMLButtonElement
+  const btn = document.getElementById('extract-btn') as HTMLButtonElement
   const originalHtml = btn.innerHTML
   
-  document.querySelectorAll('#action-bar button').forEach(b => (b as HTMLButtonElement).disabled = true)
-  btn.innerHTML = `<div class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block"></div>`
+  document.querySelectorAll('#action-bar button').forEach((b) => ((b as HTMLButtonElement).disabled = true))
+  btn.innerHTML = `<div class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block"></div> Preparando...`
 
   try {
     const indices = Array.from(selectedPages)
-    const result = await pdfService.extractPages(currentFilePath, indices, fileName || undefined, toTemp)
+    const tempResult = await pdfService.extractPages(currentFilePath, indices, undefined, true)
 
-    if (result.success && result.outputPath) {
-      if (toTemp && targetView) {
-        const fileInfo = await pdfService.getFileInfo(result.outputPath)
-        if (fileInfo) {
-          showNotification('Redirigiendo...', 'success')
-          navigateTo(targetView, { fileInfo })
-        }
+    if (!tempResult.success || !tempResult.outputPath) {
+      showNotification(tempResult.error || 'Error al extraer páginas', 'error')
+      return
+    }
+
+    const fileInfo = await pdfService.getFileInfo(tempResult.outputPath)
+    const fileSize = fileInfo ? formatFileSize(fileInfo.fileSizeBytes) : ''
+
+    const base = currentFileName ? currentFileName.replace(/\.pdf$/i, '') : 'documento'
+    const defaultName = `${base}_extraido.pdf`
+
+    const dialogResult = await pdfService.promptSaveDialog({
+      defaultName,
+      title: 'Guardar PDF Extraído',
+      fileSize,
+      currentView: 'split'
+    })
+
+    if (!dialogResult) return // user cancelled
+
+    if (dialogResult.action === 'save') {
+      const copied = await pdfService.copyFile(tempResult.outputPath, dialogResult.fileName)
+      if (copied) {
+        showNotification(`PDF guardado correctamente como ${dialogResult.fileName} (${tempResult.pageCount} páginas)`, 'success')
       } else {
-        showNotification(`PDF guardado correctamente como ${fileName} (${result.pageCount} páginas)`, 'success')
+        showNotification('Error al guardar el archivo', 'error')
       }
-    } else if (result.error !== 'Operación cancelada') {
-      showNotification(result.error || 'Error desconocido', 'error')
+    } else if (dialogResult.action === 'chain') {
+      if (fileInfo) {
+        showNotification('Redirigiendo...', 'success')
+        navigateTo(dialogResult.targetView, {
+          fileInfo,
+          returnTo: { view: 'split', payload: { restoreState: true } }
+        })
+      }
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     showNotification(`Error: ${message}`, 'error')
   } finally {
-    document.querySelectorAll('#action-bar button').forEach(b => (b as HTMLButtonElement).disabled = false)
+    document.querySelectorAll('#action-bar button').forEach((b) => ((b as HTMLButtonElement).disabled = false))
     btn.innerHTML = originalHtml
   }
 }

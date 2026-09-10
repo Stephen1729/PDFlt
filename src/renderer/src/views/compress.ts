@@ -12,15 +12,40 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
 let currentFileInfo: PdfFileInfo | null = null
 let selectedLevel: CompressionLevel = 'recommended'
 let isCompressing = false
+let chainedReturnTo: { view: any; payload?: any } | null = null
 
 export function renderCompress(container: HTMLElement, payload?: any): void {
-  currentFileInfo = null
-  selectedLevel = 'recommended'
-  isCompressing = false
+  chainedReturnTo = payload?.returnTo || null
+
+  const isRestoring = payload?.restoreState && currentFileInfo
+
+  if (!isRestoring) {
+    if (!payload?.fileInfo) {
+      currentFileInfo = null
+    }
+    selectedLevel = 'recommended'
+    isCompressing = false
+    lastOperationResult = null
+  }
 
   container.innerHTML = `
     <div id="drop-zone" class="drop-zone">
       <div class="drop-zone-content">
+        ${
+          chainedReturnTo
+            ? `
+          <div style="width: 100%; display: flex; justify-content: flex-start; margin-bottom: 8px;">
+            <button id="chain-back-btn-drop" class="chain-back-btn" title="Volver">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+              </svg>
+              <span>Volver</span>
+            </button>
+          </div>
+        `
+            : ''
+        }
         <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
           <polyline points="3.29 7 12 12 20.71 7"></polyline>
@@ -32,8 +57,24 @@ export function renderCompress(container: HTMLElement, payload?: any): void {
       </div>
     </div>
 
-    <div id="compress-workspace" style="display:none; width: 100%; max-width: 800px; margin: 0 auto; padding: 2rem; overflow-y: auto; flex: 1;">
+    <div id="compress-workspace" style="display:none; width: 100%; max-width: 800px; margin: 0 auto; padding: 1.5rem 1rem; overflow-y: auto; flex: 1;">
       
+      ${
+        chainedReturnTo
+          ? `
+        <div style="display: flex; align-items: center; margin-bottom: 1rem;">
+          <button id="chain-back-btn" class="chain-back-btn" title="Volver a la herramienta anterior">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="19" y1="12" x2="5" y2="12"></line>
+              <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+            <span>Volver</span>
+          </button>
+        </div>
+      `
+          : ''
+      }
+
       <!-- Info Header -->
       <div class="file-info-header" style="text-align: center; margin-bottom: 2rem;">
         <h2 id="file-name" style="margin-bottom: 8px;"></h2>
@@ -76,12 +117,12 @@ export function renderCompress(container: HTMLElement, payload?: any): void {
         </div>
       </div>
 
-      <!-- Result Section -->
-      <div id="result-container" style="display: none; text-align: center; margin-bottom: 2rem; padding: 1.5rem; background: var(--bg-secondary); border-radius: 12px; border: 1px solid var(--border);">
-        <h3 style="margin-bottom: 1rem; color: var(--success);">¡Compresión Completada!</h3>
-        <div style="display: flex; justify-content: center; gap: 2rem; margin-bottom: 1rem; font-size: 0.9rem;">
-          <div>Original: <span id="result-old-size" style="font-weight: bold;"></span></div>
-          <div>Comprimido: <span id="result-new-size" style="font-weight: bold;"></span></div>
+      <!-- Result Card -->
+      <div id="result-container" class="result-container" style="display: none; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem; text-align: center;">
+        <h3 style="color: var(--success); margin-bottom: 1rem;">¡Compresión completada!</h3>
+        <div style="display: flex; justify-content: space-around; margin-bottom: 1rem;">
+          <div>Tamaño original: <span id="result-old-size" style="font-weight: bold;"></span></div>
+          <div>Nuevo tamaño: <span id="result-new-size" style="font-weight: bold; color: var(--primary);"></span></div>
           <div style="color: var(--success);">Ahorro: <span id="result-savings" style="font-weight: bold; padding: 2px 6px; border-radius: 4px;"></span></div>
         </div>
       </div>
@@ -96,13 +137,6 @@ export function renderCompress(container: HTMLElement, payload?: any): void {
           Comprimir PDF
         </button>
         <button id="save-btn" class="btn-primary" style="display: none;">Guardar Como...</button>
-        
-        <div id="chain-actions" class="chain-actions" style="display: none;">
-          <span style="color:var(--text-muted); font-size: 0.85rem">o continuar en:</span>
-          <button id="to-reorder" class="btn-secondary" title="Reordenar">Reordenar</button>
-          <button id="to-merge" class="btn-secondary" title="Unir">Unir</button>
-          <button id="to-split" class="btn-secondary" title="Separar">Separar</button>
-        </div>
       </div>
 
     </div>
@@ -112,6 +146,14 @@ export function renderCompress(container: HTMLElement, payload?: any): void {
 
   if (payload && payload.fileInfo) {
     loadPdf(payload.fileInfo)
+  } else if (isRestoring && currentFileInfo) {
+    loadPdf(currentFileInfo)
+    if (lastOperationResult) {
+      document.getElementById('result-container')!.style.display = 'block'
+      document.getElementById('save-btn')!.style.display = 'inline-flex'
+      const compressBtn = document.getElementById('compress-btn')
+      if (compressBtn) compressBtn.style.display = 'none'
+    }
   }
 }
 
@@ -173,10 +215,15 @@ function setupEventListeners(): void {
   })
 
   document.getElementById('compress-btn')?.addEventListener('click', () => handleCompress(true)) // Always save to temp first to show stats!
-  document.getElementById('save-btn')?.addEventListener('click', () => handleSaveFinal(false))
-  document.getElementById('to-reorder')?.addEventListener('click', () => handleSaveFinal(true, 'reorder'))
-  document.getElementById('to-merge')?.addEventListener('click', () => handleSaveFinal(true, 'merge'))
-  document.getElementById('to-split')?.addEventListener('click', () => handleSaveFinal(true, 'split'))
+  document.getElementById('save-btn')?.addEventListener('click', () => handleSaveFinal())
+
+  const handleGoBack = () => {
+    if (chainedReturnTo) {
+      navigateTo(chainedReturnTo.view, chainedReturnTo.payload || { restoreState: true })
+    }
+  }
+  document.getElementById('chain-back-btn')?.addEventListener('click', handleGoBack)
+  document.getElementById('chain-back-btn-drop')?.addEventListener('click', handleGoBack)
 }
 
 async function handleOpenFile(): Promise<void> {
@@ -321,7 +368,6 @@ async function showResult(result: any) {
       document.getElementById('result-container')!.style.display = 'block'
       compressBtn.style.display = 'none'
       document.getElementById('save-btn')!.style.display = 'inline-flex'
-      document.getElementById('chain-actions')!.style.display = 'inline-flex'
     }
   } else {
     showNotification(result.error || 'Error al comprimir', 'error')
@@ -333,39 +379,49 @@ async function showResult(result: any) {
   }, 1000)
 }
 
-async function handleSaveFinal(chaining: boolean, targetView?: string) {
+async function handleSaveFinal(): Promise<void> {
   if (!lastOperationResult || !lastOperationResult.outputPath) return
+
+  const saveBtn = document.getElementById('save-btn') as HTMLButtonElement
+  const originalHtml = saveBtn.innerHTML
+  saveBtn.disabled = true
+  saveBtn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block"></div> Guardando...'
   
-  if (chaining && targetView) {
+  try {
     const fileInfo = await pdfService.getFileInfo(lastOperationResult.outputPath)
-    if (fileInfo) {
-      showNotification('Redirigiendo...', 'success')
-      navigateTo(targetView as any, { fileInfo })
-    }
-  } else {
-    const saveBtn = document.getElementById('save-btn') as HTMLButtonElement
-    const originalHtml = saveBtn.innerHTML
-    saveBtn.disabled = true
-    saveBtn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block"></div> Guardando...'
-    
-    try {
-      const defaultName = currentFileInfo?.fileName.replace(/\.pdf$/i, '_comprimido.pdf') || 'PDFlt_comprimido.pdf'
-      const savePath = await pdfService.saveFileDialog(defaultName, 'Guardar PDF Comprimido')
-      
-      if (savePath) {
-        const copied = await pdfService.copyFile(lastOperationResult.outputPath, savePath)
-        if (copied) {
-          showNotification(`PDF guardado correctamente como ${savePath}`, 'success')
-        } else {
-          showNotification('Error al guardar el archivo', 'error')
-        }
+    const fileSize = fileInfo ? formatBytes(fileInfo.fileSizeBytes) : ''
+    const defaultName = currentFileInfo?.fileName.replace(/\.pdf$/i, '_comprimido.pdf') || 'PDFlt_comprimido.pdf'
+
+    const dialogResult = await pdfService.promptSaveDialog({
+      defaultName,
+      title: 'Guardar PDF Comprimido',
+      fileSize,
+      currentView: 'compress'
+    })
+
+    if (!dialogResult) return
+
+    if (dialogResult.action === 'save') {
+      const copied = await pdfService.copyFile(lastOperationResult.outputPath, dialogResult.fileName)
+      if (copied) {
+        showNotification(`PDF guardado correctamente como ${dialogResult.fileName}`, 'success')
+      } else {
+        showNotification('Error al guardar el archivo', 'error')
       }
-    } catch (e) {
-      showNotification('Error al guardar', 'error')
-    } finally {
-      saveBtn.disabled = false
-      saveBtn.innerHTML = originalHtml
+    } else if (dialogResult.action === 'chain') {
+      if (fileInfo) {
+        showNotification('Redirigiendo...', 'success')
+        navigateTo(dialogResult.targetView, {
+          fileInfo,
+          returnTo: { view: 'compress', payload: { restoreState: true } }
+        })
+      }
     }
+  } catch (e) {
+    showNotification('Error al guardar', 'error')
+  } finally {
+    saveBtn.disabled = false
+    saveBtn.innerHTML = originalHtml
   }
 }
 

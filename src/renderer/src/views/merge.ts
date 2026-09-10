@@ -1,22 +1,47 @@
-import { pdfService } from '../services/pdfService'
+import { pdfService, formatFileSize } from '../services/pdfService'
 import Sortable from 'sortablejs'
 import { navigateTo, showNotification } from '../router'
 import type { PdfFileInfo } from '../../../shared/types'
 
-// â”€â”€ Module state â”€â”€
+// ── Module state ──
 let selectedFiles: PdfFileInfo[] = []
+let chainedReturnTo: { view: any; payload?: any } | null = null
 
 /**
  * Renders the merge view
  */
-export function renderMerge(container: HTMLElement): void {
-  // Reset state
-  selectedFiles = []
+export function renderMerge(container: HTMLElement, payload?: any): void {
+  chainedReturnTo = payload?.returnTo || null
+
+  const isRestoring = payload?.restoreState && selectedFiles.length > 0
+
+  if (!isRestoring) {
+    if (payload?.fileInfo) {
+      selectedFiles = [payload.fileInfo]
+    } else {
+      selectedFiles = []
+    }
+  }
 
   container.innerHTML = `
     <!-- Drop zone for initial empty state -->
     <div id="drop-zone" class="drop-zone">
       <div class="drop-zone-content">
+        ${
+          chainedReturnTo
+            ? `
+          <div style="width: 100%; display: flex; justify-content: flex-start; margin-bottom: 8px;">
+            <button id="chain-back-btn-drop" class="chain-back-btn" title="Volver">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+              </svg>
+              <span>Volver</span>
+            </button>
+          </div>
+        `
+            : ''
+        }
         <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
@@ -30,6 +55,21 @@ export function renderMerge(container: HTMLElement): void {
 
     <!-- File list area (visible when files loaded) -->
     <div id="file-list-container" style="display:none; padding: 1rem; width: 100%; max-width: 800px; margin: 0 auto; flex: 1; overflow-y: auto;">
+      ${
+        chainedReturnTo
+          ? `
+        <div style="display: flex; align-items: center; margin-bottom: 0.75rem;">
+          <button id="chain-back-btn" class="chain-back-btn" title="Volver a la herramienta anterior">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="19" y1="12" x2="5" y2="12"></line>
+              <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+            <span>Volver</span>
+          </button>
+        </div>
+      `
+          : ''
+      }
       <h2 style="margin-bottom: 4px;">Unir PDFs</h2>
       <p style="margin-bottom: 1rem; color: var(--text-muted);">Toca y arrastra los archivos para reordenarlos.</p>
       <div id="file-list" style="display: flex; flex-direction: column; gap: 0.5rem;"></div>
@@ -49,21 +89,19 @@ export function renderMerge(container: HTMLElement): void {
           </svg>
           Guardar PDF
         </button>
-        <div class="chain-actions" id="chain-actions">
-          <span style="color:var(--text-muted); font-size: 0.85rem">o continuar en:</span>
-          <button id="merge-to-reorder" class="btn-secondary" title="Reordenar">Reordenar</button>
-          <button id="merge-to-split" class="btn-secondary" title="Separar">Separar</button>
-          <button id="merge-to-compress" class="btn-secondary" title="Comprimir">Comprimir</button>
-        </div>
       </div>
     </div>
   `
 
   setupEventListeners()
+
+  if (selectedFiles.length > 0) {
+    renderFileList()
+  }
 }
 
 function setupEventListeners(): void {
-  // Drop zone click â†’ open multiple file dialog
+  // Drop zone click → open multiple file dialog
   const dropZone = document.getElementById('drop-zone')!
   dropZone.addEventListener('click', handleOpenFiles)
 
@@ -97,11 +135,16 @@ function setupEventListeners(): void {
   // Add more button
   document.getElementById('add-more-btn')?.addEventListener('click', handleOpenFiles)
 
-  // Merge buttons
-  document.getElementById('merge-btn')?.addEventListener('click', () => handleMerge(false))
-  document.getElementById('merge-to-reorder')?.addEventListener('click', () => handleMerge(true, 'reorder'))
-  document.getElementById('merge-to-split')?.addEventListener('click', () => handleMerge(true, 'split'))
-  document.getElementById('merge-to-compress')?.addEventListener('click', () => handleMerge(true, 'compress'))
+  // Merge button
+  document.getElementById('merge-btn')?.addEventListener('click', handleMerge)
+
+  const handleGoBack = () => {
+    if (chainedReturnTo) {
+      navigateTo(chainedReturnTo.view, chainedReturnTo.payload || { restoreState: true })
+    }
+  }
+  document.getElementById('chain-back-btn')?.addEventListener('click', handleGoBack)
+  document.getElementById('chain-back-btn-drop')?.addEventListener('click', handleGoBack)
 }
 
 async function handleOpenFiles(): Promise<void> {
@@ -194,50 +237,63 @@ function renderFileList(): void {
   })
 }
 
-async function handleMerge(toTemp: boolean, targetView?: any): Promise<void> {
+async function handleMerge(): Promise<void> {
   if (selectedFiles.length < 2) {
     showNotification('Selecciona al menos 2 PDFs para unirlos.', 'warning')
     return
   }
 
-  let fileName: string | null = 'PDFlt_Unido.pdf'
-  if (!toTemp) {
-    fileName = await pdfService.saveFileDialog('PDFlt_Unido.pdf', 'Guardar PDF Unido')
-    if (!fileName) return // User cancelled
-  }
-
-  const btnId = toTemp ? `merge-to-${targetView}` : 'merge-btn'
-  const btn = document.getElementById(btnId) as HTMLButtonElement
+  const btn = document.getElementById('merge-btn') as HTMLButtonElement
   const originalText = btn.innerHTML
   
   // Disable all buttons in action bar
-  document.querySelectorAll('#action-bar button').forEach(b => (b as HTMLButtonElement).disabled = true)
-  btn.innerHTML = `<div class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block"></div>`
+  document.querySelectorAll('#action-bar button').forEach((b) => ((b as HTMLButtonElement).disabled = true))
+  btn.innerHTML = `<div class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block"></div> Preparando...`
 
   try {
-    const filePaths = selectedFiles.map(f => f.filePath)
-    const result = await pdfService.mergePdfs(filePaths, fileName, toTemp)
+    const filePaths = selectedFiles.map((f) => f.filePath)
+    const tempResult = await pdfService.mergePdfs(filePaths, undefined, true)
 
-    if (result.success && result.outputPath) {
-      if (toTemp && targetView) {
-        const fileInfo = await pdfService.getFileInfo(result.outputPath)
-        if (fileInfo) {
-          showNotification('Redirigiendo...', 'success')
-          navigateTo(targetView, { fileInfo })
-        }
-      } else {
-        showNotification(`PDF guardado correctamente como ${fileName} (${result.pageCount} páginas)`, 'success')
+    if (!tempResult.success || !tempResult.outputPath) {
+      showNotification(tempResult.error || 'Error al unir PDFs', 'error')
+      return
+    }
+
+    const fileInfo = await pdfService.getFileInfo(tempResult.outputPath)
+    const fileSize = fileInfo ? formatFileSize(fileInfo.fileSizeBytes) : ''
+
+    const dialogResult = await pdfService.promptSaveDialog({
+      defaultName: 'PDFlt_Unido.pdf',
+      title: 'Guardar PDF Unido',
+      fileSize,
+      currentView: 'merge'
+    })
+
+    if (!dialogResult) return // user cancelled
+
+    if (dialogResult.action === 'save') {
+      const copied = await pdfService.copyFile(tempResult.outputPath, dialogResult.fileName)
+      if (copied) {
+        showNotification(`PDF guardado correctamente como ${dialogResult.fileName} (${tempResult.pageCount} páginas)`, 'success')
         selectedFiles = []
         renderFileList()
+      } else {
+        showNotification('Error al guardar el archivo', 'error')
       }
-    } else if (result.error !== 'Operación cancelada') {
-      showNotification(result.error || 'Error desconocido al unir', 'error')
+    } else if (dialogResult.action === 'chain') {
+      if (fileInfo) {
+        showNotification('Redirigiendo...', 'success')
+        navigateTo(dialogResult.targetView, {
+          fileInfo,
+          returnTo: { view: 'merge', payload: { restoreState: true } }
+        })
+      }
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     showNotification(`Error: ${message}`, 'error')
   } finally {
-    document.querySelectorAll('#action-bar button').forEach(b => (b as HTMLButtonElement).disabled = false)
+    document.querySelectorAll('#action-bar button').forEach((b) => ((b as HTMLButtonElement).disabled = false))
     btn.innerHTML = originalText
   }
 }

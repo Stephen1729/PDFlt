@@ -1,6 +1,6 @@
 import Sortable from 'sortablejs'
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
-import { pdfService } from '../services/pdfService'
+import { pdfService, formatFileSize } from '../services/pdfService'
 import { showNotification, navigateTo } from '../router'
 
 interface CropRect {
@@ -25,7 +25,13 @@ let currentStage: 'drop' | 'edit' | 'cascade' = 'drop'
 let isCropMode = false
 let sortableInstance: Sortable | null = null
 
-export function renderScan(container: HTMLElement): void {
+export function renderScan(container: HTMLElement, payload?: any): void {
+  if (payload?.restoreState && scannedPages.length > 0) {
+    currentStage = 'cascade'
+    renderCurrentStage(container)
+    return
+  }
+
   scannedPages = []
   currentEditIndex = 0
   currentStage = 'drop'
@@ -34,7 +40,19 @@ export function renderScan(container: HTMLElement): void {
   renderCurrentStage(container)
 }
 
+function updateHeaderVisibility(stage: 'drop' | 'edit' | 'cascade'): void {
+  // Mobile header should ONLY appear in stage 0 (drop/welcome)
+  // In stage 1 (editor) and stage 2 (cascade), hide it to maximize screen area
+  if (stage === 'drop') {
+    document.body.classList.remove('hide-mobile-header')
+  } else {
+    document.body.classList.add('hide-mobile-header')
+  }
+}
+
 function renderCurrentStage(container: HTMLElement): void {
+  updateHeaderVisibility(currentStage)
+
   if (currentStage === 'drop') {
     renderDropStage(container)
   } else if (currentStage === 'edit') {
@@ -852,13 +870,6 @@ function renderCascadeStage(container: HTMLElement): void {
             </svg>
             Guardar PDF (${scannedPages.length} pág)
           </button>
-
-          <div class="chain-actions">
-            <span>o continuar en:</span>
-            <button id="chain-compress-btn" class="btn-secondary">Comprimir</button>
-            <button id="chain-merge-btn" class="btn-secondary">Unir</button>
-            <button id="chain-split-btn" class="btn-secondary">Separar</button>
-          </div>
         </div>
       </div>
     </div>
@@ -1016,40 +1027,8 @@ function renderCascadeStage(container: HTMLElement): void {
     }
   })
 
-  // Save PDF Handler (Direct)
+  // Save PDF Handler (generates to temp, previews size in modal, supports chain actions)
   savePdfBtn.addEventListener('click', async () => {
-    if (scannedPages.length === 0) return
-
-    const dateStr = new Date().toISOString().slice(0, 10)
-    const defaultName = `PDFlt_Escaneo_${dateStr}.pdf`
-    const fileName = await pdfService.saveFileDialog(defaultName, 'Guardar PDF')
-    if (!fileName) return
-
-    const originalHtml = savePdfBtn.innerHTML
-    savePdfBtn.disabled = true
-    savePdfBtn.innerHTML = `<div class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block"></div> Guardando...`
-
-    try {
-      const fitCheckbox = document.getElementById('fit-image-checkbox') as HTMLInputElement | null
-      const fitToImage = fitCheckbox ? fitCheckbox.checked : true
-      const imagesDataUrls = scannedPages.map((p) => p.processedDataUrl)
-      const result = await pdfService.createPdfFromImages(imagesDataUrls, fileName, false, { fitToImage })
-
-      if (result.success && result.outputPath) {
-        showNotification(`PDF guardado correctamente como ${fileName} (${result.pageCount} páginas)`, 'success')
-      } else {
-        showNotification(result.error || 'Error al guardar el PDF', 'error')
-      }
-    } catch (err: any) {
-      showNotification(err.message || 'Error inesperado al guardar PDF', 'error')
-    } finally {
-      savePdfBtn.disabled = false
-      savePdfBtn.innerHTML = originalHtml
-    }
-  })
-
-  // Direct Chain Handlers
-  const handleChainAction = async (targetView: 'compress' | 'merge' | 'split') => {
     if (scannedPages.length === 0) return
 
     const originalHtml = savePdfBtn.innerHTML
@@ -1060,28 +1039,53 @@ function renderCascadeStage(container: HTMLElement): void {
       const fitCheckbox = document.getElementById('fit-image-checkbox') as HTMLInputElement | null
       const fitToImage = fitCheckbox ? fitCheckbox.checked : true
       const imagesDataUrls = scannedPages.map((p) => p.processedDataUrl)
-      const result = await pdfService.createPdfFromImages(imagesDataUrls, undefined, true, { fitToImage })
+      const tempResult = await pdfService.createPdfFromImages(imagesDataUrls, undefined, true, { fitToImage })
 
-      if (result.success && result.outputPath) {
-        const fileInfo = await pdfService.getFileInfo(result.outputPath)
-        if (fileInfo) {
-          showNotification('Redirigiendo...', 'success')
-          navigateTo(targetView, { fileInfo })
+      if (!tempResult.success || !tempResult.outputPath) {
+        showNotification(tempResult.error || 'Error al preparar el PDF', 'error')
+        savePdfBtn.disabled = false
+        savePdfBtn.innerHTML = originalHtml
+        return
+      }
+
+      const fileInfo = await pdfService.getFileInfo(tempResult.outputPath)
+      const fileSize = fileInfo ? formatFileSize(fileInfo.fileSizeBytes) : ''
+
+      savePdfBtn.disabled = false
+      savePdfBtn.innerHTML = originalHtml
+
+      const dateStr = new Date().toISOString().slice(0, 10)
+      const defaultName = `PDFlt_Escaneo_${dateStr}.pdf`
+
+      const dialogResult = await pdfService.promptSaveDialog({
+        defaultName,
+        title: 'Guardar PDF',
+        fileSize,
+        currentView: 'scan'
+      })
+
+      if (!dialogResult) return // User cancelled
+
+      if (dialogResult.action === 'save') {
+        const saved = await pdfService.copyFile(tempResult.outputPath, dialogResult.fileName)
+        if (saved) {
+          showNotification(`PDF guardado correctamente como ${dialogResult.fileName} (${tempResult.pageCount} páginas)`, 'success')
+        } else {
+          showNotification('Error al guardar el archivo', 'error')
         }
-      } else {
-        showNotification(result.error || 'Error al preparar PDF', 'error')
+      } else if (dialogResult.action === 'chain') {
+        showNotification('Redirigiendo...', 'success')
+        navigateTo(dialogResult.targetView, {
+          fileInfo,
+          returnTo: { view: 'scan', payload: { restoreState: true } }
+        })
       }
     } catch (err: any) {
-      showNotification(err.message || 'Error al preparar PDF', 'error')
-    } finally {
+      showNotification(err.message || 'Error inesperado al preparar PDF', 'error')
       savePdfBtn.disabled = false
       savePdfBtn.innerHTML = originalHtml
     }
-  }
-
-  document.getElementById('chain-compress-btn')?.addEventListener('click', () => handleChainAction('compress'))
-  document.getElementById('chain-merge-btn')?.addEventListener('click', () => handleChainAction('merge'))
-  document.getElementById('chain-split-btn')?.addEventListener('click', () => handleChainAction('split'))
+  })
 }
 
 /* ═══════════════════════════════════════════
