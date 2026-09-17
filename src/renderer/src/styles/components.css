@@ -427,33 +427,6 @@
   width: 100%;
 }
 
-.chain-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  margin-top: 4px;
-}
-
-.chain-actions > span {
-  display: none;
-}
-
-@media (min-width: 600px) {
-  .chain-actions {
-    width: auto;
-    margin-top: 0;
-    padding-left: 12px;
-    margin-left: 12px;
-    border-left: 1px solid var(--border);
-  }
-  .chain-actions > span {
-    display: inline;
-  }
-}
-
 /* ═══════════════════════════════════════════
    Loading State
    ═══════════════════════════════════════════ */
@@ -851,13 +824,6 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-}
-
-/* Global filter active state */
-.global-filter-btn.active {
-  background: var(--accent) !important;
-  color: #fff !important;
-  border-color: var(--accent) !important;
 }
 
 /* ═══════════════════════════════════════════

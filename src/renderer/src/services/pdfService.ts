@@ -72,10 +72,6 @@ export const pdfService = {
     }
   },
 
-  getFilePath(file: File): string {
-    return file.name
-  },
-
   async processDroppedFiles(files: File[]): Promise<PdfFileInfo[]> {
     const infos: PdfFileInfo[] = []
     for (const file of files) {
@@ -119,21 +115,10 @@ export const pdfService = {
     }
   },
 
-  async readPdfFileBase64(filePath: string): Promise<string> {
-    return fileCache.get(filePath) || ''
-  },
-
   async readPdfFile(filePath: string): Promise<ArrayBuffer> {
     const b64 = fileCache.get(filePath)
     if (!b64) throw new Error('File not found in cache')
-    
-    const binaryString = window.atob(b64)
-    const len = binaryString.length
-    const bytes = new Uint8Array(len)
-    for (let i = 0; i < len; i++) {
-      bytes[i] = binaryString.charCodeAt(i)
-    }
-    return bytes.buffer
+    return Uint8Array.from(window.atob(b64), (c) => c.charCodeAt(0)).buffer
   },
 
   async mergePdfs(filePaths: string[], customName?: string, toTemp?: boolean): Promise<OperationResult> {
@@ -235,15 +220,6 @@ export const pdfService = {
     }
   },
   
-  async saveFileDialog(
-    defaultName: string,
-    title = 'Guardar PDF',
-    fileSize?: string,
-    currentView?: ChainViewTarget
-  ): Promise<string | null> {
-    return await promptSaveFileName(defaultName, title, fileSize, currentView)
-  },
-
   async promptSaveDialog(options: SaveModalOptions): Promise<SaveModalResult> {
     return await promptSaveDialog(options)
   },
@@ -559,16 +535,6 @@ export function promptSaveDialog(options: SaveModalOptions): Promise<SaveModalRe
       input.select()
     }, 50)
   })
-}
-
-export async function promptSaveFileName(
-  defaultName: string,
-  title = 'Guardar PDF',
-  fileSize?: string,
-  currentView?: ChainViewTarget
-): Promise<string | null> {
-  const result = await promptSaveDialog({ defaultName, title, fileSize, currentView })
-  return result?.action === 'save' ? result.fileName : null
 }
 
 async function saveResult(
