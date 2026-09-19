@@ -219,10 +219,7 @@ export const pdfService = {
       return { success: false, error: e.message }
     }
   },
-  
-  async promptSaveDialog(options: SaveModalOptions): Promise<SaveModalResult> {
-    return await promptSaveDialog(options)
-  },
+  promptSaveDialog,
   
   async createPdfFromImages(
     imagesBase64: string[],
