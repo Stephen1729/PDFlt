@@ -383,7 +383,9 @@
 }
 
 .mobile-header {
-  height: 60px;
+  min-height: calc(60px + env(safe-area-inset-top, 0px));
+  height: calc(60px + env(safe-area-inset-top, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
   position: relative;
   display: flex;
   align-items: center;
@@ -553,8 +555,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 16px;
-  min-height: 56px;
+  padding: calc(8px + env(safe-area-inset-top, 0px)) calc(16px + env(safe-area-inset-right, 0px)) 8px calc(16px + env(safe-area-inset-left, 0px));
+  min-height: calc(56px + env(safe-area-inset-top, 0px));
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
@@ -983,8 +985,8 @@ body.hide-mobile-header .mobile-header {
 /* Subtle Header Back Button */
 .header-back-btn {
   position: absolute;
-  left: 10px;
-  top: 50%;
+  left: calc(10px + env(safe-area-inset-left, 0px));
+  top: calc(50% + env(safe-area-inset-top, 0px) / 2);
   transform: translateY(-50%);
   display: flex;
   align-items: center;
