@@ -1083,33 +1083,37 @@ function setupEditStageListeners(container: HTMLElement, currentPage: ScannedPag
         const minMargin = 0.03
 
         if (activeTarget === 'top') {
-          const maxAllowedY_tl = Math.min(1, startCrop.bl.y - minMargin)
-          const maxAllowedY_tr = Math.min(1, startCrop.br.y - minMargin)
-          page.crop.tl.y = Math.max(0, Math.min(maxAllowedY_tl, startCrop.tl.y + dy))
-          page.crop.tr.y = Math.max(0, Math.min(maxAllowedY_tr, startCrop.tr.y + dy))
-          page.crop.tl.x = Math.max(0, Math.min(1, startCrop.tl.x + dx))
-          page.crop.tr.x = Math.max(0, Math.min(1, startCrop.tr.x + dx))
+          const minAllowedDy = Math.max(-startCrop.tl.y, -startCrop.tr.y)
+          const maxAllowedDy = Math.min(startCrop.bl.y - minMargin - startCrop.tl.y, startCrop.br.y - minMargin - startCrop.tr.y)
+          const clampedDy = Math.max(minAllowedDy, Math.min(maxAllowedDy, dy))
+          page.crop.tl.y = startCrop.tl.y + clampedDy
+          page.crop.tr.y = startCrop.tr.y + clampedDy
+          page.crop.tl.x = startCrop.tl.x
+          page.crop.tr.x = startCrop.tr.x
         } else if (activeTarget === 'bottom') {
-          const minAllowedY_bl = Math.max(0, startCrop.tl.y + minMargin)
-          const minAllowedY_br = Math.max(0, startCrop.tr.y + minMargin)
-          page.crop.bl.y = Math.max(minAllowedY_bl, Math.min(1, startCrop.bl.y + dy))
-          page.crop.br.y = Math.max(minAllowedY_br, Math.min(1, startCrop.br.y + dy))
-          page.crop.bl.x = Math.max(0, Math.min(1, startCrop.bl.x + dx))
-          page.crop.br.x = Math.max(0, Math.min(1, startCrop.br.x + dx))
+          const minAllowedDy = Math.max(startCrop.tl.y + minMargin - startCrop.bl.y, startCrop.tr.y + minMargin - startCrop.br.y)
+          const maxAllowedDy = Math.min(1 - startCrop.bl.y, 1 - startCrop.br.y)
+          const clampedDy = Math.max(minAllowedDy, Math.min(maxAllowedDy, dy))
+          page.crop.bl.y = startCrop.bl.y + clampedDy
+          page.crop.br.y = startCrop.br.y + clampedDy
+          page.crop.bl.x = startCrop.bl.x
+          page.crop.br.x = startCrop.br.x
         } else if (activeTarget === 'left') {
-          const maxAllowedX_tl = Math.min(1, startCrop.tr.x - minMargin)
-          const maxAllowedX_bl = Math.min(1, startCrop.br.x - minMargin)
-          page.crop.tl.x = Math.max(0, Math.min(maxAllowedX_tl, startCrop.tl.x + dx))
-          page.crop.bl.x = Math.max(0, Math.min(maxAllowedX_bl, startCrop.bl.x + dx))
-          page.crop.tl.y = Math.max(0, Math.min(1, startCrop.tl.y + dy))
-          page.crop.bl.y = Math.max(0, Math.min(1, startCrop.bl.y + dy))
+          const minAllowedDx = Math.max(-startCrop.tl.x, -startCrop.bl.x)
+          const maxAllowedDx = Math.min(startCrop.tr.x - minMargin - startCrop.tl.x, startCrop.br.x - minMargin - startCrop.bl.x)
+          const clampedDx = Math.max(minAllowedDx, Math.min(maxAllowedDx, dx))
+          page.crop.tl.x = startCrop.tl.x + clampedDx
+          page.crop.bl.x = startCrop.bl.x + clampedDx
+          page.crop.tl.y = startCrop.tl.y
+          page.crop.bl.y = startCrop.bl.y
         } else if (activeTarget === 'right') {
-          const minAllowedX_tr = Math.max(0, startCrop.tl.x + minMargin)
-          const minAllowedX_br = Math.max(0, startCrop.bl.x + minMargin)
-          page.crop.tr.x = Math.max(minAllowedX_tr, Math.min(1, startCrop.tr.x + dx))
-          page.crop.br.x = Math.max(minAllowedX_br, Math.min(1, startCrop.br.x + dx))
-          page.crop.tr.y = Math.max(0, Math.min(1, startCrop.tr.y + dy))
-          page.crop.br.y = Math.max(0, Math.min(1, startCrop.br.y + dy))
+          const minAllowedDx = Math.max(startCrop.tl.x + minMargin - startCrop.tr.x, startCrop.bl.x + minMargin - startCrop.br.x)
+          const maxAllowedDx = Math.min(1 - startCrop.tr.x, 1 - startCrop.br.x)
+          const clampedDx = Math.max(minAllowedDx, Math.min(maxAllowedDx, dx))
+          page.crop.tr.x = startCrop.tr.x + clampedDx
+          page.crop.br.x = startCrop.br.x + clampedDx
+          page.crop.tr.y = startCrop.tr.y
+          page.crop.br.y = startCrop.br.y
         }
 
         updateCropBoxDom()

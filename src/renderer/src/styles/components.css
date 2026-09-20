@@ -688,7 +688,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: grab;
+}
+
+.crop-edge-handle.top,
+.crop-edge-handle.bottom {
+  cursor: ns-resize;
+}
+
+.crop-edge-handle.left,
+.crop-edge-handle.right {
+  cursor: ew-resize;
 }
 
 .crop-edge-handle:active {
