@@ -2,17 +2,21 @@
   /* ── Background ── */
   --bg-primary: #111111;
   --bg-secondary: #1a1a1a;
+  --bg-tertiary: #23252f;
+  --bg-surface: #1c1e26;
   --bg-card: #222222;
   --bg-card-hover: #2a2a2a;
   --bg-input: #0a0a0a;
 
   /* ── Text ── */
   --text-primary: #f3f3f3;
+  --text: var(--text-primary);
   --text-secondary: #b3b3b3;
   --text-muted: #737373;
 
   /* ── Accent ── */
   --accent: #2b70c9;
+  --primary: var(--accent);
   --accent-hover: #3d8bf0;
   --accent-soft: rgba(43, 112, 201, 0.12);
   --accent-glow: rgba(43, 112, 201, 0.25);

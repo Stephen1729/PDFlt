@@ -75,6 +75,7 @@ export function renderScan(container: HTMLElement, payload?: any): void {
 
 export function handleScanBack(): boolean {
   if (!scanContainer) return false
+  const container = scanContainer
 
   if (currentStage === 'drop') {
     return false
@@ -83,17 +84,34 @@ export function handleScanBack(): boolean {
   if (currentStage === 'edit') {
     if (isCropMode) {
       isCropMode = false
-      renderEditStage(scanContainer)
+      renderEditStage(container)
       return true
     }
     if (editOriginStage === 'cascade') {
       currentStage = 'cascade'
-      renderCurrentStage(scanContainer)
+      renderCurrentStage(container)
+      return true
+    }
+    if (scannedPages.length > 0) {
+      pdfService
+        .promptConfirmDialog({
+          title: '¿Descartar fotos?',
+          message: 'Se perderán las fotos escaneadas en esta sesión.',
+          confirmText: 'Descartar',
+          isDanger: true
+        })
+        .then((confirmed) => {
+          if (confirmed) {
+            scannedPages = []
+            currentStage = 'drop'
+            renderCurrentStage(container)
+          }
+        })
       return true
     }
     scannedPages = []
     currentStage = 'drop'
-    renderCurrentStage(scanContainer)
+    renderCurrentStage(container)
     return true
   }
 
@@ -101,7 +119,7 @@ export function handleScanBack(): boolean {
     currentStage = 'edit'
     currentEditIndex = scannedPages.length > 0 ? scannedPages.length - 1 : 0
     editOriginStage = 'drop'
-    renderCurrentStage(scanContainer)
+    renderCurrentStage(container)
     return true
   }
 
@@ -494,6 +512,10 @@ function renderEditStage(container: HTMLElement): void {
         <div id="crop-loupe" class="crop-loupe" style="display: none;">
           <canvas id="crop-loupe-canvas" width="224" height="224"></canvas>
         </div>
+        <div id="scan-processing-overlay" class="scan-processing-overlay" style="display: none;">
+          <div class="spinner" style="width: 32px; height: 32px; border-width: 3px;"></div>
+          <span>Procesando imagen...</span>
+        </div>
       </div>
 
       <!-- Controls & Filters Toolbar -->
@@ -607,16 +629,31 @@ function setupEditStageListeners(container: HTMLElement, currentPage: ScannedPag
   window.addEventListener('resize', adjustImageBounds, { passive: true })
 
   // Cancel
-  document.getElementById('cancel-edit-btn')?.addEventListener('click', () => {
+  document.getElementById('cancel-edit-btn')?.addEventListener('click', async () => {
+    if (editOriginStage === 'cascade') {
+      resizeObserver.disconnect()
+      window.removeEventListener('resize', adjustImageBounds)
+      activeCropUpdater = null
+      currentStage = 'cascade'
+      renderCurrentStage(container)
+      return
+    }
+
+    if (scannedPages.length > 0) {
+      const confirmed = await pdfService.promptConfirmDialog({
+        title: '¿Descartar fotos?',
+        message: 'Se perderán las fotos escaneadas en esta sesión.',
+        confirmText: 'Descartar',
+        isDanger: true
+      })
+      if (!confirmed) return
+    }
+
     resizeObserver.disconnect()
     window.removeEventListener('resize', adjustImageBounds)
     activeCropUpdater = null
-    if (editOriginStage === 'cascade') {
-      currentStage = 'cascade'
-    } else {
-      scannedPages = []
-      currentStage = 'drop'
-    }
+    scannedPages = []
+    currentStage = 'drop'
     renderCurrentStage(container)
   })
 
@@ -650,7 +687,17 @@ function setupEditStageListeners(container: HTMLElement, currentPage: ScannedPag
   })
 
   // Delete current photo
-  document.getElementById('delete-current-btn')?.addEventListener('click', () => {
+  document.getElementById('delete-current-btn')?.addEventListener('click', async () => {
+    if (scannedPages.length === 1) {
+      const confirmed = await pdfService.promptConfirmDialog({
+        title: '¿Eliminar foto?',
+        message: 'Es la única foto capturada. Volverás a la pantalla inicial.',
+        confirmText: 'Eliminar',
+        isDanger: true
+      })
+      if (!confirmed) return
+    }
+
     resizeObserver.disconnect()
     window.removeEventListener('resize', adjustImageBounds)
     activeCropUpdater = null
@@ -664,16 +711,30 @@ function setupEditStageListeners(container: HTMLElement, currentPage: ScannedPag
     renderCurrentStage(container)
   })
 
+  async function runWithProcessingFeedback<T>(action: () => Promise<T>): Promise<T> {
+    const overlay = document.getElementById('scan-processing-overlay')
+    if (overlay) overlay.style.display = 'flex'
+    // Ensure the browser renders the spinner before the CPU-intensive Canvas work
+    await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 20)))
+    try {
+      return await action()
+    } finally {
+      if (overlay) overlay.style.display = 'none'
+    }
+  }
+
   // Rotate
   document.getElementById('rotate-btn')?.addEventListener('click', async () => {
-    resizeObserver.disconnect()
-    window.removeEventListener('resize', adjustImageBounds)
-    activeCropUpdater = null
-    currentPage.rotation = (currentPage.rotation + 90) % 360
-    currentPage.crop = getDefaultCrop()
-    isCropMode = false
-    currentPage.processedDataUrl = await processPageImage(currentPage)
-    renderEditStage(container)
+    await runWithProcessingFeedback(async () => {
+      resizeObserver.disconnect()
+      window.removeEventListener('resize', adjustImageBounds)
+      activeCropUpdater = null
+      currentPage.rotation = (currentPage.rotation + 90) % 360
+      currentPage.crop = getDefaultCrop()
+      isCropMode = false
+      currentPage.processedDataUrl = await processPageImage(currentPage)
+      renderEditStage(container)
+    })
   })
 
   // Crop toggle
@@ -682,45 +743,51 @@ function setupEditStageListeners(container: HTMLElement, currentPage: ScannedPag
   cropBtn?.addEventListener('click', async () => {
     if (!isCropMode) {
       isCropMode = true
-      // Show full uncropped photo while editing crop
-      const fullUrl = await processPageImage({
-        ...currentPage,
-        crop: getDefaultCrop()
-      })
-      if (img) {
-        img.onload = () => {
-          adjustImageBounds()
-          setupCropHandles(currentPage)
+      await runWithProcessingFeedback(async () => {
+        // Show full uncropped photo while editing crop
+        const fullUrl = await processPageImage({
+          ...currentPage,
+          crop: getDefaultCrop()
+        })
+        if (img) {
+          img.onload = () => {
+            adjustImageBounds()
+            setupCropHandles(currentPage)
+          }
+          img.src = fullUrl
         }
-        img.src = fullUrl
-      }
-      if (cropBox) cropBox.style.display = 'block'
-      cropBtn.textContent = 'Aplicar recorte'
-      cropBtn.classList.add('active')
-      setupCropHandles(currentPage)
+        if (cropBox) cropBox.style.display = 'block'
+        cropBtn.textContent = 'Aplicar recorte'
+        cropBtn.classList.add('active')
+        setupCropHandles(currentPage)
+      })
     } else {
-      resizeObserver.disconnect()
-      window.removeEventListener('resize', adjustImageBounds)
-      activeCropUpdater = null
-      isCropMode = false
-      if (cropBox) cropBox.style.display = 'none'
-      cropBtn.textContent = 'Recortar'
-      cropBtn.classList.remove('active')
-      // Apply crop with perspective correction
-      currentPage.processedDataUrl = await processPageImage(currentPage)
-      renderEditStage(container)
+      await runWithProcessingFeedback(async () => {
+        resizeObserver.disconnect()
+        window.removeEventListener('resize', adjustImageBounds)
+        activeCropUpdater = null
+        isCropMode = false
+        if (cropBox) cropBox.style.display = 'none'
+        cropBtn.textContent = 'Recortar'
+        cropBtn.classList.remove('active')
+        // Apply crop with perspective correction
+        currentPage.processedDataUrl = await processPageImage(currentPage)
+        renderEditStage(container)
+      })
     }
   })
 
   // Reset crop
   document.getElementById('reset-crop-btn')?.addEventListener('click', async () => {
-    resizeObserver.disconnect()
-    window.removeEventListener('resize', adjustImageBounds)
-    activeCropUpdater = null
-    currentPage.crop = getDefaultCrop()
-    currentPage.processedDataUrl = await processPageImage(currentPage)
-    isCropMode = false
-    renderEditStage(container)
+    await runWithProcessingFeedback(async () => {
+      resizeObserver.disconnect()
+      window.removeEventListener('resize', adjustImageBounds)
+      activeCropUpdater = null
+      currentPage.crop = getDefaultCrop()
+      currentPage.processedDataUrl = await processPageImage(currentPage)
+      isCropMode = false
+      renderEditStage(container)
+    })
   })
 
   // Setup crop handles dragging
@@ -732,29 +799,33 @@ function setupEditStageListeners(container: HTMLElement, currentPage: ScannedPag
       document.querySelectorAll('.filter-btn').forEach((b) => b.classList.remove('active'))
       btn.classList.add('active')
       currentPage.filter = (btn as HTMLElement).dataset.filter as 'raw' | 'bw' | 'color'
-      if (isCropMode) {
-        const fullUrl = await processPageImage({
-          ...currentPage,
-          crop: getDefaultCrop()
-        })
-        if (img) img.src = fullUrl
-      } else {
-        currentPage.processedDataUrl = await processPageImage(currentPage)
-        if (img) img.src = currentPage.processedDataUrl
-      }
+      await runWithProcessingFeedback(async () => {
+        if (isCropMode) {
+          const fullUrl = await processPageImage({
+            ...currentPage,
+            crop: getDefaultCrop()
+          })
+          if (img) img.src = fullUrl
+        } else {
+          currentPage.processedDataUrl = await processPageImage(currentPage)
+          if (img) img.src = currentPage.processedDataUrl
+        }
+      })
     })
   })
 
   // Prev / Next
   document.getElementById('prev-page-btn')?.addEventListener('click', async () => {
     if (currentEditIndex > 0) {
+      if (isCropMode) {
+        await runWithProcessingFeedback(async () => {
+          currentPage.processedDataUrl = await processPageImage(currentPage)
+          isCropMode = false
+        })
+      }
       resizeObserver.disconnect()
       window.removeEventListener('resize', adjustImageBounds)
       activeCropUpdater = null
-      if (isCropMode) {
-        currentPage.processedDataUrl = await processPageImage(currentPage)
-        isCropMode = false
-      }
       currentEditIndex--
       renderEditStage(container)
     }
@@ -762,13 +833,15 @@ function setupEditStageListeners(container: HTMLElement, currentPage: ScannedPag
 
   document.getElementById('next-page-btn')?.addEventListener('click', async () => {
     if (currentEditIndex < scannedPages.length - 1) {
+      if (isCropMode) {
+        await runWithProcessingFeedback(async () => {
+          currentPage.processedDataUrl = await processPageImage(currentPage)
+          isCropMode = false
+        })
+      }
       resizeObserver.disconnect()
       window.removeEventListener('resize', adjustImageBounds)
       activeCropUpdater = null
-      if (isCropMode) {
-        currentPage.processedDataUrl = await processPageImage(currentPage)
-        isCropMode = false
-      }
       currentEditIndex++
       renderEditStage(container)
     }
@@ -776,13 +849,15 @@ function setupEditStageListeners(container: HTMLElement, currentPage: ScannedPag
 
   // Go to Stage 2: Cascade
   document.getElementById('go-to-cascade-btn')?.addEventListener('click', async () => {
+    if (isCropMode) {
+      await runWithProcessingFeedback(async () => {
+        currentPage.processedDataUrl = await processPageImage(currentPage)
+        isCropMode = false
+      })
+    }
     resizeObserver.disconnect()
     window.removeEventListener('resize', adjustImageBounds)
     activeCropUpdater = null
-    if (isCropMode) {
-      currentPage.processedDataUrl = await processPageImage(currentPage)
-      isCropMode = false
-    }
     currentStage = 'cascade'
     renderCurrentStage(container)
   })
@@ -1318,7 +1393,16 @@ function renderCascadeStage(container: HTMLElement): void {
   })
 
   // Clear all
-  clearAllBtn.addEventListener('click', () => {
+  clearAllBtn.addEventListener('click', async () => {
+    if (scannedPages.length > 0) {
+      const confirmed = await pdfService.promptConfirmDialog({
+        title: '¿Borrar todas las fotos?',
+        message: 'Se eliminarán todas las páginas de esta sesión de escaneo.',
+        confirmText: 'Borrar todo',
+        isDanger: true
+      })
+      if (!confirmed) return
+    }
     scannedPages = []
     currentStage = 'drop'
     renderCurrentStage(container)

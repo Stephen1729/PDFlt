@@ -20,4 +20,4 @@ export interface PageDimension {
   height: number
 }
 
-export type CompressionLevel = 'extreme' | 'recommended' | 'basic'
+export type CompressionLevel = 'extreme' | 'recommended' | 'low'

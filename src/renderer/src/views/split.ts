@@ -40,12 +40,23 @@ export function renderSplit(container: HTMLElement, payload?: any): void {
 
     <!-- Thumbnails scroll area (visible when file loaded) -->
     <div id="thumbnails-scroll" class="thumbnails-scroll" style="display:none">
-      <div class="thumbnails-header">
-        <h2 id="file-name" style="margin-bottom: 4px;"></h2>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">
-          Toca las páginas que deseas extraer al nuevo PDF.
-        </p>
+      <div class="document-toolbar">
+        <div class="document-toolbar-info">
+          <div id="file-name" class="document-toolbar-name"></div>
+          <div class="document-toolbar-meta">
+            <span id="file-meta"></span>
+          </div>
+        </div>
+        <div class="document-toolbar-actions">
+          <button type="button" id="change-file-btn" class="btn-secondary" style="padding: 6px 12px; font-size: 0.82rem;">Cambiar</button>
+          <button type="button" id="close-file-btn" class="btn-icon" title="Cerrar PDF" aria-label="Cerrar PDF" style="color: var(--text-muted);">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
       </div>
+      <p style="color: var(--text-muted); font-size: 0.88rem; margin-bottom: 1rem;">
+        Toca las páginas que deseas extraer al nuevo PDF.
+      </p>
       <div id="thumbnails-grid" class="thumbnails-grid"></div>
     </div>
 
@@ -120,6 +131,50 @@ function setupEventListeners(): void {
   document.getElementById('extract-btn')?.addEventListener('click', handleExtract)
   document.getElementById('select-all-btn')?.addEventListener('click', handleSelectAll)
   document.getElementById('invert-btn')?.addEventListener('click', handleInvertSelection)
+
+  // Document toolbar actions
+  document.getElementById('change-file-btn')?.addEventListener('click', handleOpenFile)
+  document.getElementById('close-file-btn')?.addEventListener('click', () => handleSplitBack())
+}
+
+export function handleSplitBack(): boolean {
+  if (!currentFilePath) return false
+
+  if (selectedPages.size > 0) {
+    pdfService
+      .promptConfirmDialog({
+        title: '¿Cerrar PDF?',
+        message: 'Se desmarcarán las páginas seleccionadas para extraer.',
+        confirmText: 'Cerrar',
+        isDanger: true
+      })
+      .then((confirmed) => {
+        if (confirmed) {
+          resetSplit()
+        }
+      })
+    return true
+  }
+
+  resetSplit()
+  return true
+}
+
+export function resetSplit(): void {
+  currentFilePath = null
+  currentFileName = ''
+  totalPageCount = 0
+  selectedPages.clear()
+
+  const dropZone = document.getElementById('drop-zone')
+  const thumbnailsScroll = document.getElementById('thumbnails-scroll')
+  const actionBar = document.getElementById('action-bar')
+  const grid = document.getElementById('thumbnails-grid')
+
+  if (dropZone) dropZone.style.display = 'flex'
+  if (thumbnailsScroll) thumbnailsScroll.style.display = 'none'
+  if (actionBar) actionBar.style.display = 'none'
+  if (grid) grid.innerHTML = ''
 }
 
 async function handleOpenFile(): Promise<void> {
@@ -136,7 +191,14 @@ async function loadPdf(fileInfo: PdfFileInfo): Promise<void> {
   selectedPages.clear()
   updateSelectionInfo()
 
-  document.getElementById('file-name')!.textContent = fileInfo.fileName
+  const nameEl = document.getElementById('file-name')
+  if (nameEl) nameEl.textContent = fileInfo.fileName
+
+  const metaEl = document.getElementById('file-meta')
+  if (metaEl) {
+    const sizeStr = fileInfo.fileSizeBytes ? ` · ${formatFileSize(fileInfo.fileSizeBytes)}` : ''
+    metaEl.textContent = `${fileInfo.pageCount} páginas${sizeStr}`
+  }
 
   if (fileInfo.isEncrypted) {
     showNotification('Este PDF tiene restricciones de seguridad.', 'warning')

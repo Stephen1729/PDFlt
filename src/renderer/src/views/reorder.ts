@@ -48,12 +48,23 @@ export function renderReorder(container: HTMLElement, payload?: any): void {
 
     <!-- Thumbnails (visible when file loaded) -->
     <div id="thumbnails-scroll" class="thumbnails-scroll" style="display:none">
-      <div class="thumbnails-header" style="margin-bottom: 1rem;">
-        <h2 id="file-name" style="margin-bottom: 4px;"></h2>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">
-          Arrastra las páginas para cambiar su orden.
-        </p>
+      <div class="document-toolbar">
+        <div class="document-toolbar-info">
+          <div id="file-name" class="document-toolbar-name"></div>
+          <div class="document-toolbar-meta">
+            <span id="file-meta"></span>
+          </div>
+        </div>
+        <div class="document-toolbar-actions">
+          <button type="button" id="change-file-btn" class="btn-secondary" style="padding: 6px 12px; font-size: 0.82rem;">Cambiar</button>
+          <button type="button" id="close-file-btn" class="btn-icon" title="Cerrar PDF" aria-label="Cerrar PDF" style="color: var(--text-muted);">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
       </div>
+      <p style="color: var(--text-muted); font-size: 0.88rem; margin-bottom: 1rem;">
+        Arrastra las páginas para cambiar su orden.
+      </p>
       <div id="thumbnails-grid" class="thumbnails-grid"></div>
     </div>
 
@@ -84,7 +95,7 @@ export function renderReorder(container: HTMLElement, payload?: any): void {
 }
 
 function setupEventListeners(): void {
-  // Drop zone click â†’ open file dialog
+  // Drop zone click → open file dialog
   const dropZone = document.getElementById('drop-zone')!
   dropZone.addEventListener('click', handleOpenFile)
 
@@ -123,6 +134,51 @@ function setupEventListeners(): void {
 
   // Save button
   document.getElementById('save-btn')?.addEventListener('click', handleSave)
+
+  // Document toolbar actions
+  document.getElementById('change-file-btn')?.addEventListener('click', handleOpenFile)
+  document.getElementById('close-file-btn')?.addEventListener('click', () => handleReorderBack())
+}
+
+export function handleReorderBack(): boolean {
+  if (!currentFilePath) return false
+
+  const isOrderChanged = currentPageOrder.some((p, i) => p !== i)
+  if (isOrderChanged) {
+    pdfService
+      .promptConfirmDialog({
+        title: '¿Descartar cambios?',
+        message: 'Se perderá el orden personalizado de las páginas.',
+        confirmText: 'Descartar',
+        isDanger: true
+      })
+      .then((confirmed) => {
+        if (confirmed) {
+          resetReorder()
+        }
+      })
+    return true
+  }
+
+  resetReorder()
+  return true
+}
+
+export function resetReorder(): void {
+  currentFilePath = null
+  currentFileName = ''
+  currentPageOrder = []
+  originalPageCount = 0
+
+  const dropZone = document.getElementById('drop-zone')
+  const thumbnailsScroll = document.getElementById('thumbnails-scroll')
+  const actionBar = document.getElementById('action-bar')
+  const grid = document.getElementById('thumbnails-grid')
+
+  if (dropZone) dropZone.style.display = 'flex'
+  if (thumbnailsScroll) thumbnailsScroll.style.display = 'none'
+  if (actionBar) actionBar.style.display = 'none'
+  if (grid) grid.innerHTML = ''
 }
 
 async function handleOpenFile(): Promise<void> {
@@ -139,7 +195,14 @@ async function loadPdf(fileInfo: PdfFileInfo): Promise<void> {
   currentPageOrder = Array.from({ length: fileInfo.pageCount }, (_, i) => i)
 
   // Update header
-  document.getElementById('file-name')!.textContent = fileInfo.fileName
+  const nameEl = document.getElementById('file-name')
+  if (nameEl) nameEl.textContent = fileInfo.fileName
+
+  const metaEl = document.getElementById('file-meta')
+  if (metaEl) {
+    const sizeStr = fileInfo.fileSizeBytes ? ` · ${formatFileSize(fileInfo.fileSizeBytes)}` : ''
+    metaEl.textContent = `${fileInfo.pageCount} páginas${sizeStr}`
+  }
 
   // Show encrypted warning
   if (fileInfo.isEncrypted) {

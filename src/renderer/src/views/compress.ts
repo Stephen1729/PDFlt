@@ -41,12 +41,21 @@ export function renderCompress(container: HTMLElement, payload?: any): void {
 
     <div id="compress-workspace" style="display:none; width: 100%; max-width: 800px; margin: 0 auto; padding: 1.5rem 1rem; overflow-y: auto; flex: 1;">
       
-      <!-- Info Header -->
-      <div class="file-info-header" style="text-align: center; margin-bottom: 2rem;">
-        <h2 id="file-name" style="margin-bottom: 8px;"></h2>
-        <div style="display: flex; justify-content: center; gap: 16px; color: var(--text-muted);">
-          <span id="file-pages"></span>
-          <span id="file-size" style="font-weight: 500; color: var(--text);"></span>
+      <!-- Document Toolbar -->
+      <div class="document-toolbar" style="margin-bottom: 1.5rem;">
+        <div class="document-toolbar-info">
+          <div id="file-name" class="document-toolbar-name"></div>
+          <div class="document-toolbar-meta">
+            <span id="file-pages"></span>
+            <span style="opacity: 0.5;">·</span>
+            <span id="file-size" style="font-weight: 500;"></span>
+          </div>
+        </div>
+        <div class="document-toolbar-actions">
+          <button type="button" id="change-file-btn" class="btn-secondary" style="padding: 6px 12px; font-size: 0.82rem;">Cambiar</button>
+          <button type="button" id="close-file-btn" class="btn-icon" title="Cerrar PDF" aria-label="Cerrar PDF" style="color: var(--text-muted);">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
         </div>
       </div>
 
@@ -182,6 +191,45 @@ function setupEventListeners(): void {
 
   document.getElementById('compress-btn')?.addEventListener('click', () => handleCompress(true)) // Always save to temp first to show stats!
   document.getElementById('save-btn')?.addEventListener('click', () => handleSaveFinal())
+
+  // Document toolbar actions
+  document.getElementById('change-file-btn')?.addEventListener('click', handleOpenFile)
+  document.getElementById('close-file-btn')?.addEventListener('click', () => handleCompressBack())
+}
+
+export function handleCompressBack(): boolean {
+  if (!currentFileInfo) return false
+
+  if (isCompressing) {
+    showNotification('La compresión está en curso, por favor espera.', 'warning')
+    return true
+  }
+
+  resetCompress()
+  return true
+}
+
+export function resetCompress(): void {
+  currentFileInfo = null
+  isCompressing = false
+  lastOperationResult = null
+
+  const dropZone = document.getElementById('drop-zone')
+  const workspace = document.getElementById('compress-workspace')
+  const progressContainer = document.getElementById('progress-container')
+  const resultContainer = document.getElementById('result-container')
+  const compressBtn = document.getElementById('compress-btn')
+  const saveBtn = document.getElementById('save-btn')
+
+  if (dropZone) dropZone.style.display = 'flex'
+  if (workspace) workspace.style.display = 'none'
+  if (progressContainer) progressContainer.style.display = 'none'
+  if (resultContainer) resultContainer.style.display = 'none'
+  if (compressBtn) {
+    compressBtn.style.display = 'inline-flex'
+    ;(compressBtn as HTMLButtonElement).disabled = true
+  }
+  if (saveBtn) saveBtn.style.display = 'none'
 }
 
 async function handleOpenFile(): Promise<void> {
@@ -229,26 +277,27 @@ async function handleCompress(toTemp: boolean): Promise<void> {
   progressPercent.textContent = '0%'
 
   try {
-    if (selectedLevel === 'basic') {
-      progressText.textContent = 'Optimizando estructura...'
-      progressBar.style.width = '50%'
-      // Call main process directly for structural compression
-      const result = await pdfService.compressStructural(currentFileInfo.filePath, toTemp)
-      progressBar.style.width = '100%'
-      progressPercent.textContent = '100%'
-      await showResult(result)
-    } else {
-      // Canvas based compression
-      const arrayBuffer = await pdfService.readPdfFile(currentFileInfo.filePath)
-      const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise
-      const numPages = pdf.numPages
-      
-      const imagesBase64: string[] = []
-      const dimensions: any[] = []
-      
-      // Determine scale and quality based on level
-      const scale = selectedLevel === 'extreme' ? 1.0 : 1.5
-      const quality = selectedLevel === 'extreme' ? 0.6 : 0.8
+    // Canvas based compression
+    const arrayBuffer = await pdfService.readPdfFile(currentFileInfo.filePath)
+    const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise
+    const numPages = pdf.numPages
+    
+    const imagesBase64: string[] = []
+    const dimensions: any[] = []
+    
+    // Determine scale and quality based on level
+    const scaleMap: Record<CompressionLevel, number> = {
+      extreme: 1.0,     // ~100 DPI
+      recommended: 1.5, // ~150 DPI
+      low: 2.2          // ~250-300 DPI
+    }
+    const qualityMap: Record<CompressionLevel, number> = {
+      extreme: 0.6,
+      recommended: 0.8,
+      low: 0.9
+    }
+    const scale = scaleMap[selectedLevel] ?? 1.5
+    const quality = qualityMap[selectedLevel] ?? 0.8
 
       for (let i = 1; i <= numPages; i++) {
         progressText.textContent = `Renderizando página ${i} de ${numPages}...`
@@ -285,7 +334,6 @@ async function handleCompress(toTemp: boolean): Promise<void> {
       progressPercent.textContent = '100%'
       
       await showResult(result)
-    }
   } catch (err) {
     showNotification(`Error: ${(err as Error).message}`, 'error')
     progressContainer.style.display = 'none'

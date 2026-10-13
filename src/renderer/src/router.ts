@@ -1,8 +1,8 @@
 import { renderScan, handleScanBack } from './views/scan'
-import { renderReorder } from './views/reorder'
-import { renderMerge } from './views/merge'
-import { renderSplit } from './views/split'
-import { renderCompress } from './views/compress'
+import { renderReorder, handleReorderBack } from './views/reorder'
+import { renderMerge, handleMergeBack } from './views/merge'
+import { renderSplit, handleSplitBack } from './views/split'
+import { renderCompress, handleCompressBack } from './views/compress'
 import { renderSettings } from './views/settings'
 
 export type ViewName = 'scan' | 'reorder' | 'merge' | 'split' | 'compress' | 'settings'
@@ -37,40 +37,40 @@ export function triggerBack(): boolean {
     return true
   }
 
-  // 2. Close bottom "More" menu if open
-  const moreMenuContainer = document.getElementById('more-menu-container')
-  if (moreMenuContainer && moreMenuContainer.style.display === 'block') {
-    moreMenuContainer.style.display = 'none'
-    return true
-  }
-
-  // 3. Close generic modals if any
+  // 2. Close generic modals if any
   const genericModal = document.querySelector('.modal-overlay')
   if (genericModal) {
     genericModal.remove()
     return true
   }
 
-  // 4. Execute registered back handler (e.g. chained workflow returnTo)
+  // 3. Execute registered back handler (e.g. chained workflow returnTo)
   if (currentBackHandler) {
     const handler = currentBackHandler
     handler()
     return true
   }
 
-  // 5. If in scan view, handle scan internal stages
+  // 4. Let the active view handle internal back (close document, step back in stages, etc.)
   if (currentView === 'scan') {
-    const handled = handleScanBack()
-    if (handled) return true
+    if (handleScanBack()) return true
+  } else if (currentView === 'split') {
+    if (handleSplitBack()) return true
+  } else if (currentView === 'reorder') {
+    if (handleReorderBack()) return true
+  } else if (currentView === 'compress') {
+    if (handleCompressBack()) return true
+  } else if (currentView === 'merge') {
+    if (handleMergeBack()) return true
   }
 
-  // 6. If on any secondary view/tab, return to home tab ('scan')
+  // 5. If on any secondary view/tab (with no active document), return to home tab ('scan')
   if (currentView !== 'scan') {
     navigateTo('scan')
     return true
   }
 
-  // 7. At root (home scan Stage 0) with nothing open
+  // 6. At root (home scan Stage 0) with nothing open
   return false
 }
 
@@ -86,8 +86,6 @@ export function navigateTo(view: ViewName, payload?: any): void {
     item.classList.remove('active')
     const itemTarget = (item as HTMLElement).dataset.view
     if (itemTarget === view) {
-      item.classList.add('active')
-    } else if (itemTarget === 'more' && (view === 'reorder' || view === 'settings')) {
       item.classList.add('active')
     }
   })

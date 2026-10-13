@@ -321,15 +321,18 @@
 }
 
 .action-bar .page-info {
-  display: none; /* Hide on mobile to save vertical space */
-  font-size: 0.9rem;
-  color: var(--text-muted);
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-secondary);
   text-align: center;
+  width: 100%;
 }
 
 @media (min-width: 600px) {
   .action-bar .page-info {
-    display: block;
+    width: auto;
+    font-size: 0.9rem;
     text-align: left;
   }
 }
@@ -431,16 +434,24 @@
 }
 
 .nav-item {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 2px;
   color: var(--text-muted);
   text-decoration: none;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 500;
   transition: all var(--duration) var(--ease);
+  -webkit-tap-highlight-color: transparent;
+  min-width: 0;
+}
+
+.nav-item svg {
+  flex-shrink: 0;
 }
 
 .nav-item:hover {
@@ -455,7 +466,6 @@
    Main Content
    ═══════════════════════════════════════════ */
 
-
 .main-content {
   flex: 1;
   display: flex;
@@ -463,79 +473,6 @@
   position: relative;
   overflow: hidden;
   background: transparent;
-}
-
-/* ═══════════════════════════════════════════
-   More Menu Floating Popover
-   ═══════════════════════════════════════════ */
-
-.more-menu-container {
-  position: fixed;
-  inset: 0;
-  z-index: 99;
-}
-
-.more-menu-backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(2px);
-}
-
-.more-menu-card {
-  position: absolute;
-  bottom: calc(68px + env(safe-area-inset-bottom));
-  right: 16px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg), 0 0 24px rgba(0, 0, 0, 0.6);
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 190px;
-  animation: slideUp 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-  z-index: 100;
-  overflow: hidden;
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(12px) scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-.more-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  background: transparent;
-  color: var(--text-primary);
-  border: none;
-  border-radius: 10px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--duration) var(--ease);
-  width: 100%;
-  text-align: left;
-}
-
-.more-menu-item:hover,
-.more-menu-item:active {
-  background: var(--bg-card-hover);
-  color: var(--accent);
-}
-
-.more-menu-item svg {
-  flex-shrink: 0;
 }
 
 /* ═══════════════════════════════════════════
@@ -574,6 +511,23 @@
   box-sizing: border-box;
   background: #0d0e12;
   overflow: hidden;
+}
+
+.scan-processing-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(13, 14, 18, 0.78);
+  backdrop-filter: blur(4px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  z-index: 100;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  pointer-events: all;
 }
 
 .scan-editor-image-wrapper {
@@ -1017,5 +971,115 @@ body.hide-mobile-header .mobile-header {
   background: var(--bg-tertiary);
   color: var(--text-primary);
 }
+
+/* Subtle Header Settings Button */
+.header-settings-btn {
+  position: absolute;
+  right: calc(10px + env(safe-area-inset-right, 0px));
+  top: calc(50% + env(safe-area-inset-top, 0px) / 2);
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--duration) var(--ease);
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.header-settings-btn:hover,
+.header-settings-btn:active {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+/* ═══════════════════════════════════════════
+   Document Toolbar (Split, Reorder, Compress)
+   ═══════════════════════════════════════════ */
+.document-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  margin-bottom: 16px;
+}
+
+.document-toolbar-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.document-toolbar-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.document-toolbar-meta {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.document-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════
+   Merge File Item Drag Handle & Badges
+   ═══════════════════════════════════════════ */
+.file-drag-handle {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  touch-action: none;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+  border-radius: var(--radius-sm);
+  transition: color var(--duration) var(--ease), background var(--duration) var(--ease);
+}
+
+.file-drag-handle:active {
+  cursor: grabbing;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.file-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 2px 7px;
+  border-radius: 4px;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
 
 

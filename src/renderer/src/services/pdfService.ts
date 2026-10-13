@@ -220,6 +220,7 @@ export const pdfService = {
     }
   },
   promptSaveDialog,
+  promptConfirmDialog,
   
   async createPdfFromImages(
     imagesBase64: string[],
@@ -590,4 +591,52 @@ async function saveResult(
       return { success: false, error: e.message }
     }
   }
+}
+
+export interface ConfirmModalOptions {
+  title: string
+  message: string
+  confirmText?: string
+  cancelText?: string
+  isDanger?: boolean
+}
+
+export function promptConfirmDialog(options: ConfirmModalOptions): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
+    const overlay = document.createElement('div')
+    overlay.className = 'save-modal-overlay'
+
+    overlay.innerHTML = `
+      <div class="save-modal-card" style="max-width: 360px;">
+        <div class="save-modal-header">
+          <h3>${options.title}</h3>
+          <button type="button" class="save-modal-close" aria-label="Cerrar">&times;</button>
+        </div>
+        <div class="save-modal-body">
+          <p style="color: var(--text-secondary); font-size: 0.95rem; margin: 0; line-height: 1.45;">${options.message}</p>
+        </div>
+        <div class="save-modal-footer" style="margin-top: 16px; display: flex; gap: 8px; justify-content: flex-end;">
+          <button id="confirm-modal-cancel" class="btn-secondary" style="padding: 8px 16px;">${options.cancelText || 'Cancelar'}</button>
+          <button id="confirm-modal-ok" class="btn-primary" style="padding: 8px 16px; ${options.isDanger ? 'background: var(--error); box-shadow: 0 4px 12px var(--error-soft);' : ''}">${options.confirmText || 'Aceptar'}</button>
+        </div>
+      </div>
+    `
+
+    document.body.appendChild(overlay)
+
+    let isClosed = false
+    const closeDialog = (result: boolean) => {
+      if (isClosed) return
+      isClosed = true
+      overlay.remove()
+      resolve(result)
+    }
+
+    overlay.querySelector('#confirm-modal-ok')?.addEventListener('click', () => closeDialog(true))
+    overlay.querySelector('#confirm-modal-cancel')?.addEventListener('click', () => closeDialog(false))
+    overlay.querySelector('.save-modal-close')?.addEventListener('click', () => closeDialog(false))
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeDialog(false)
+    })
+  })
 }

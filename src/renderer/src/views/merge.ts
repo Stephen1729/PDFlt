@@ -5,6 +5,7 @@ import type { PdfFileInfo } from '../../../shared/types'
 
 // ── Module state ──
 let selectedFiles: PdfFileInfo[] = []
+let sortableInstance: Sortable | null = null
 
 /**
  * Renders the merge view
@@ -122,6 +123,10 @@ function renderFileList(): void {
   const mergeInfo = document.getElementById('merge-info')!
 
   if (selectedFiles.length === 0) {
+    if (sortableInstance) {
+      sortableInstance.destroy()
+      sortableInstance = null
+    }
     dropZone.style.display = 'flex'
     listContainer.style.display = 'none'
     actionBar.style.display = 'none'
@@ -147,18 +152,20 @@ function renderFileList(): void {
       background: var(--bg-surface);
       border: 1px solid var(--border);
       border-radius: 8px;
-      cursor: grab;
+      cursor: default;
+      user-select: none;
     `
 
     item.innerHTML = `
-      <div style="margin-right: 1rem; color: var(--text-muted);">
+      <div class="file-drag-handle" title="Arrastrar para ordenar">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg>
       </div>
-      <div style="flex: 1; overflow: hidden;">
+      <span class="file-badge">#${index + 1}</span>
+      <div style="flex: 1; overflow: hidden; min-width: 0;">
         <div style="font-weight: 500; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;">${file.fileName}</div>
         <div style="font-size: 0.8rem; color: var(--text-muted);">${file.pageCount} páginas</div>
       </div>
-      <button class="remove-btn btn-icon" data-idx="${index}" title="Eliminar" style="margin-left: 1rem; color: var(--error);">
+      <button class="remove-btn btn-icon" data-idx="${index}" title="Eliminar" style="margin-left: 0.75rem; color: var(--error); flex-shrink: 0;">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
       </button>
     `
@@ -177,23 +184,68 @@ function renderFileList(): void {
     })
   })
 
-  // Initialize SortableJS
-  Sortable.create(fileList, {
+  // Initialize or re-initialize SortableJS safely
+  if (sortableInstance) {
+    sortableInstance.destroy()
+    sortableInstance = null
+  }
+
+  sortableInstance = Sortable.create(fileList, {
     animation: 150,
-    delay: 150,
-    delayOnTouchOnly: true,
     ghostClass: 'thumbnail-ghost',
     chosenClass: 'thumbnail-chosen',
     dragClass: 'thumbnail-drag',
-    handle: '.file-item',
+    handle: '.file-drag-handle',
     onEnd: (evt) => {
-      if (evt.oldIndex !== undefined && evt.newIndex !== undefined) {
+      if (evt.oldIndex !== undefined && evt.newIndex !== undefined && evt.oldIndex !== evt.newIndex) {
         const item = selectedFiles.splice(evt.oldIndex, 1)[0]
         selectedFiles.splice(evt.newIndex, 0, item)
-        renderFileList() // Re-render to update indices
+        // Update DOM indices and badges directly without resetting Sortable
+        const items = fileList.querySelectorAll('.file-item')
+        items.forEach((el, idx) => {
+          (el as HTMLElement).dataset.index = String(idx)
+          const badge = el.querySelector('.file-badge')
+          if (badge) badge.textContent = `#${idx + 1}`
+          const removeBtn = el.querySelector('.remove-btn') as HTMLElement
+          if (removeBtn) removeBtn.dataset.idx = String(idx)
+        })
       }
     }
   })
+}
+
+export function handleMergeBack(): boolean {
+  if (selectedFiles.length === 0) {
+    return false
+  }
+
+  if (selectedFiles.length > 1) {
+    pdfService
+      .promptConfirmDialog({
+        title: '¿Quitar archivos?',
+        message: 'Se eliminarán los archivos de la lista para unir.',
+        confirmText: 'Quitar',
+        isDanger: true
+      })
+      .then((confirmed) => {
+        if (confirmed) {
+          resetMerge()
+        }
+      })
+    return true
+  }
+
+  resetMerge()
+  return true
+}
+
+export function resetMerge(): void {
+  if (sortableInstance) {
+    sortableInstance.destroy()
+    sortableInstance = null
+  }
+  selectedFiles = []
+  renderFileList()
 }
 
 async function handleMerge(): Promise<void> {
