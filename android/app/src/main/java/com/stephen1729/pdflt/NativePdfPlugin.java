@@ -313,5 +313,46 @@ public class NativePdfPlugin extends Plugin {
             call.reject("Clear cache failed: " + e.getMessage(), e);
         }
     }
+
+    @PluginMethod
+    public void openPdf(PluginCall call) {
+        String path = call.getString("path");
+        if (path == null || path.isEmpty()) {
+            call.reject("Path is required");
+            return;
+        }
+
+        try {
+            Uri contentUri;
+            if (path.startsWith("content://")) {
+                contentUri = Uri.parse(path);
+            } else {
+                String cleanPath = path.startsWith("file://") ? path.substring(7) : path;
+                File file = new File(cleanPath);
+                if (!file.exists()) {
+                    call.reject("File does not exist: " + cleanPath);
+                    return;
+                }
+                contentUri = androidx.core.content.FileProvider.getUriForFile(
+                    getContext(),
+                    getContext().getPackageName() + ".fileprovider",
+                    file
+                );
+            }
+
+            android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_VIEW);
+            intent.setDataAndType(contentUri, "application/pdf");
+            intent.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+
+            android.content.Intent chooser = android.content.Intent.createChooser(intent, "Abrir PDF");
+            chooser.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(chooser);
+
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("Could not open PDF: " + e.getMessage(), e);
+        }
+    }
 }
 

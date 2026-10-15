@@ -38,6 +38,10 @@ export interface NativePdfPluginInterface {
   }>
 
   clearCache(): Promise<void>
+
+  openPdf(options: {
+    path: string
+  }): Promise<void>
 }
 
 export const NativePdf = registerPlugin<NativePdfPluginInterface>('NativePdf')
@@ -189,4 +193,21 @@ export async function clearNativePdfCache(): Promise<void> {
     console.debug('Failed to clear native PDF cache:', err)
   }
 }
+
+/**
+ * Opens a PDF file natively with external Android PDF viewers (Drive, Adobe, etc.) via Intent.ACTION_VIEW.
+ */
+export async function openNativePdf(path: string): Promise<boolean> {
+  if (!isNativePdfSupported() || !path) {
+    return false
+  }
+  try {
+    await NativePdf.openPdf({ path })
+    return true
+  } catch (err) {
+    console.warn('Native openPdf failed:', err)
+    return false
+  }
+}
+
 

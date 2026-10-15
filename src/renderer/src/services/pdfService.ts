@@ -4,6 +4,7 @@ import { Share } from '@capacitor/share'
 import { Capacitor } from '@capacitor/core'
 import { PDFDocument } from 'pdf-lib'
 import type { PdfFileInfo, OperationResult, PageDimension } from '../../../shared/types'
+import { openNativePdf } from './nativePdfService'
 
 // Utilities for generating random temporary names
 const generateTempName = () => `temp_${Date.now()}_${Math.random().toString(36).substring(7)}.pdf`
@@ -898,6 +899,61 @@ export async function sharePdf(fileName: string): Promise<boolean> {
 
 export async function openPdf(fileName: string): Promise<void> {
   const bytes = fileCache.get(fileName)
+
+  // 1. Android Native Platform: use native Intent.ACTION_VIEW via NativePdfPlugin
+  if (Capacitor.isNativePlatform()) {
+    try {
+      let targetUri: string | null = null
+
+      // Check if file is in Documents (where saved files are written)
+      try {
+        const docUri = await Filesystem.getUri({
+          path: fileName,
+          directory: Directory.Documents
+        })
+        if (docUri && docUri.uri) {
+          targetUri = docUri.uri
+        }
+      } catch (docErr) {
+        console.debug('File not found in Documents folder:', docErr)
+      }
+
+      // If not in Documents but bytes exist in memory, write temporarily to Cache to open
+      if (!targetUri && bytes) {
+        try {
+          const b64 = uint8ArrayToBase64(bytes)
+          await Filesystem.writeFile({
+            path: fileName,
+            data: b64,
+            directory: Directory.Cache
+          })
+          const cacheUri = await Filesystem.getUri({
+            path: fileName,
+            directory: Directory.Cache
+          })
+          if (cacheUri && cacheUri.uri) {
+            targetUri = cacheUri.uri
+          }
+        } catch (cacheErr) {
+          console.debug('Could not write temporary file to Cache:', cacheErr)
+        }
+      }
+
+      // Launch native Android PDF viewer chooser
+      if (targetUri) {
+        const opened = await openNativePdf(targetUri)
+        if (opened) return
+      }
+    } catch (nativeErr) {
+      console.warn('Native openPdf failed:', nativeErr)
+    }
+
+    // Fallback on native: share sheet if opening failed
+    await sharePdf(fileName)
+    return
+  }
+
+  // 2. Web / Browser fallback: open Blob URL in new window/tab
   if (bytes) {
     try {
       const blob = new Blob([bytes as any], { type: 'application/pdf' })
@@ -909,7 +965,7 @@ export async function openPdf(fileName: string): Promise<void> {
     }
   }
 
-  // Fallback to native share sheet
+  // 3. Final fallback
   await sharePdf(fileName)
 }
 
