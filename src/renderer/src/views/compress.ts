@@ -2,6 +2,7 @@ import { pdfService } from '../services/pdfService'
 import * as pdfjsLib from 'pdfjs-dist'
 import { showNotification, navigateTo } from '../router'
 import type { PdfFileInfo, CompressionLevel } from '../../../shared/types'
+import { isNativePdfSupported, renderNativePageForCompression, clearNativePdfCache } from '../services/nativePdfService'
 
 // Configure pdf.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -29,9 +30,10 @@ export function renderCompress(container: HTMLElement, payload?: any): void {
     <div id="drop-zone" class="drop-zone">
       <div class="drop-zone-content">
         <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-          <polyline points="3.29 7 12 12 20.71 7"></polyline>
-          <line x1="12" y1="22" x2="12" y2="12"></line>
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="12" y1="18" x2="12" y2="12"></line>
+          <polyline points="9 15 12 18 15 15"></polyline>
         </svg>
         <h3>Comprimir PDF</h3>
         <p>Toca para seleccionar un PDF</p>
@@ -94,20 +96,22 @@ export function renderCompress(container: HTMLElement, payload?: any): void {
 
       <!-- Result Card -->
       <div id="result-container" class="result-container" style="display: none; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem; text-align: center;">
-        <h3 style="color: var(--success); margin-bottom: 1rem;">¡Compresión completada!</h3>
-        <div style="display: flex; justify-content: space-around; margin-bottom: 1rem;">
+        <h3 id="result-title" style="color: var(--success); margin-bottom: 1rem;">¡Compresión completada!</h3>
+        <div style="display: flex; justify-content: space-around; margin-bottom: 0.5rem;">
           <div>Tamaño original: <span id="result-old-size" style="font-weight: bold;"></span></div>
           <div>Nuevo tamaño: <span id="result-new-size" style="font-weight: bold; color: var(--primary);"></span></div>
           <div style="color: var(--success);">Ahorro: <span id="result-savings" style="font-weight: bold; padding: 2px 6px; border-radius: 4px;"></span></div>
         </div>
+        <p id="result-diagnostic" style="display: none; font-size: 0.82rem; color: var(--text-muted); margin-top: 0.75rem; line-height: 1.45;"></p>
       </div>
 
       <div class="action-buttons">
         <button id="compress-btn" class="btn-primary" disabled>
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-            <polyline points="3.29 7 12 12 20.71 7"></polyline>
-            <line x1="12" y1="22" x2="12" y2="12"></line>
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="12" y1="18" x2="12" y2="12"></line>
+            <polyline points="9 15 12 18 15 15"></polyline>
           </svg>
           Comprimir PDF
         </button>
@@ -197,6 +201,15 @@ function setupEventListeners(): void {
   document.getElementById('close-file-btn')?.addEventListener('click', () => handleCompressBack())
 }
 
+export async function canLeaveCompress(): Promise<boolean> {
+  if (isCompressing) {
+    showNotification('La compresión está en curso, por favor espera.', 'warning')
+    return false
+  }
+  resetCompress()
+  return true
+}
+
 export function handleCompressBack(): boolean {
   if (!currentFileInfo) return false
 
@@ -213,6 +226,7 @@ export function resetCompress(): void {
   currentFileInfo = null
   isCompressing = false
   lastOperationResult = null
+  clearNativePdfCache().catch(() => {})
 
   const dropZone = document.getElementById('drop-zone')
   const workspace = document.getElementById('compress-workspace')
@@ -282,7 +296,7 @@ async function handleCompress(toTemp: boolean): Promise<void> {
     const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise
     const numPages = pdf.numPages
     
-    const imagesBase64: string[] = []
+    const pagesData: (string | Uint8Array)[] = []
     const dimensions: any[] = []
     
     // Determine scale and quality based on level
@@ -298,42 +312,60 @@ async function handleCompress(toTemp: boolean): Promise<void> {
     }
     const scale = scaleMap[selectedLevel] ?? 1.5
     const quality = qualityMap[selectedLevel] ?? 0.8
+    const useNative = isNativePdfSupported() && Boolean(currentFileInfo?.filePath)
 
-      for (let i = 1; i <= numPages; i++) {
-        progressText.textContent = `Renderizando página ${i} de ${numPages}...`
-        const percent = Math.round(((i - 1) / numPages) * 100)
-        progressBar.style.width = `${percent}%`
-        progressPercent.textContent = `${percent}%`
+    for (let i = 1; i <= numPages; i++) {
+      progressText.textContent = `Procesando página ${i} de ${numPages}...`
+      const percent = Math.round(((i - 1) / numPages) * 100)
+      progressBar.style.width = `${percent}%`
+      progressPercent.textContent = `${percent}%`
 
-        const page = await pdf.getPage(i)
-        const unscaledViewport = page.getViewport({ scale: 1.0 })
-        
-        dimensions.push({ width: unscaledViewport.width, height: unscaledViewport.height })
-        
-        const viewport = page.getViewport({ scale })
-        const canvas = document.createElement('canvas')
-        canvas.width = viewport.width
-        canvas.height = viewport.height
-        const ctx = canvas.getContext('2d')!
-        
-        ctx.fillStyle = '#ffffff'
-        ctx.fillRect(0, 0, canvas.width, canvas.height)
-        
-        await page.render({ canvasContext: ctx, viewport }).promise
-        
-        const base64 = canvas.toDataURL('image/jpeg', quality)
-        imagesBase64.push(base64)
+      if (useNative && currentFileInfo) {
+        const nativePage = await renderNativePageForCompression(
+          currentFileInfo.filePath,
+          i - 1,
+          scale,
+          Math.round(quality * 100)
+        )
+        if (nativePage) {
+          dimensions.push({ width: nativePage.originalWidth, height: nativePage.originalHeight })
+          pagesData.push(nativePage.bytes)
+          continue
+        }
       }
 
-      progressText.textContent = 'Ensamblando PDF final...'
-      progressBar.style.width = '95%'
-      progressPercent.textContent = '95%'
-
-      const result = await pdfService.assembleCompressedPdf(imagesBase64, dimensions, toTemp)
-      progressBar.style.width = '100%'
-      progressPercent.textContent = '100%'
+      // Fallback: HTML5 Canvas + PDF.js
+      const page = await pdf.getPage(i)
+      const unscaledViewport = page.getViewport({ scale: 1.0 })
+      dimensions.push({ width: unscaledViewport.width, height: unscaledViewport.height })
       
-      await showResult(result)
+      const viewport = page.getViewport({ scale })
+      const canvas = document.createElement('canvas')
+      canvas.width = viewport.width
+      canvas.height = viewport.height
+      const ctx = canvas.getContext('2d')!
+      
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      
+      await page.render({ canvasContext: ctx, viewport }).promise
+      
+      const base64 = canvas.toDataURL('image/jpeg', quality)
+      pagesData.push(base64)
+    }
+
+    progressText.textContent = 'Ensamblando PDF final...'
+    progressBar.style.width = '95%'
+    progressPercent.textContent = '95%'
+
+    const result = await pdfService.assembleCompressedPdf(pagesData, dimensions, toTemp)
+    if (useNative) {
+      clearNativePdfCache().catch(() => {})
+    }
+    progressBar.style.width = '100%'
+    progressPercent.textContent = '100%'
+    
+    await showResult(result)
   } catch (err) {
     showNotification(`Error: ${(err as Error).message}`, 'error')
     progressContainer.style.display = 'none'
@@ -362,12 +394,30 @@ async function showResult(result: any) {
       document.getElementById('result-new-size')!.textContent = formatBytes(newSize)
       document.getElementById('result-savings')!.textContent = `${savings > 0 ? '-' : '+'}${Math.abs(savings)}%`
       
+      const titleEl = document.getElementById('result-title')
+      const diagnosticEl = document.getElementById('result-diagnostic')
+
       if (newSize >= oldSize) {
-        document.getElementById('result-savings')!.style.color = 'var(--error)'
-        document.getElementById('result-savings')!.style.background = 'rgba(239, 68, 68, 0.1)'
+        document.getElementById('result-savings')!.style.color = 'var(--warning)'
+        document.getElementById('result-savings')!.style.background = 'rgba(251, 191, 36, 0.12)'
+        if (titleEl) {
+          titleEl.textContent = 'Archivo ya optimizado'
+          titleEl.style.color = 'var(--warning)'
+        }
+        if (diagnosticEl) {
+          diagnosticEl.textContent = 'Este documento ya cuenta con compresión interna máxima. Te recomendamos conservar el archivo original para mantener la mayor fidelidad visual.'
+          diagnosticEl.style.display = 'block'
+        }
       } else {
         document.getElementById('result-savings')!.style.color = 'var(--success)'
-        document.getElementById('result-savings')!.style.background = 'rgba(74, 222, 128, 0.1)'
+        document.getElementById('result-savings')!.style.background = 'rgba(52, 211, 153, 0.12)'
+        if (titleEl) {
+          titleEl.textContent = '¡Compresión completada!'
+          titleEl.style.color = 'var(--success)'
+        }
+        if (diagnosticEl) {
+          diagnosticEl.style.display = 'none'
+        }
       }
 
       document.getElementById('result-container')!.style.display = 'block'
@@ -407,9 +457,21 @@ async function handleSaveFinal(): Promise<void> {
     if (!dialogResult) return
 
     if (dialogResult.action === 'save') {
-      const copied = await pdfService.copyFile(lastOperationResult.outputPath, dialogResult.fileName)
+      const copied = await pdfService.copyFile(
+        lastOperationResult.outputPath,
+        dialogResult.fileName,
+        dialogResult.customDirectory,
+        dialogResult.directoryHandle
+      )
       if (copied) {
         showNotification(`PDF guardado correctamente como ${dialogResult.fileName}`, 'success')
+        await pdfService.promptSuccessModal({
+          fileName: dialogResult.fileName,
+          fileSize,
+          pageCount: currentFileInfo?.pageCount || 1,
+          outputPath: dialogResult.fileName,
+          destinationName: dialogResult.destinationName
+        })
       } else {
         showNotification('Error al guardar el archivo', 'error')
       }

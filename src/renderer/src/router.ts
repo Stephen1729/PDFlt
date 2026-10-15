@@ -1,14 +1,18 @@
-import { renderScan, handleScanBack } from './views/scan'
-import { renderReorder, handleReorderBack } from './views/reorder'
-import { renderMerge, handleMergeBack } from './views/merge'
-import { renderSplit, handleSplitBack } from './views/split'
-import { renderCompress, handleCompressBack } from './views/compress'
+import { renderScan, handleScanBack, canLeaveScan } from './views/scan'
+import { renderReorder, handleReorderBack, canLeaveReorder } from './views/reorder'
+import { renderMerge, handleMergeBack, canLeaveMerge } from './views/merge'
+import { renderSplit, handleSplitBack, canLeaveSplit } from './views/split'
+import { renderCompress, handleCompressBack, canLeaveCompress } from './views/compress'
 import { renderSettings } from './views/settings'
 
 export type ViewName = 'scan' | 'reorder' | 'merge' | 'split' | 'compress' | 'settings'
 
 let currentView: ViewName = 'scan'
 let currentBackHandler: (() => void) | null = null
+
+export function getCurrentView(): ViewName {
+  return currentView
+}
 
 /**
  * Configure or hide the subtle back arrow in the top header
@@ -19,6 +23,50 @@ export function setHeaderBackAction(handler: (() => void) | null): void {
   if (headerBackBtn) {
     headerBackBtn.style.display = handler ? 'flex' : 'none'
   }
+}
+
+/**
+ * Checks if current view has unsaved state and prompts user before leaving
+ */
+export async function canLeaveCurrentView(): Promise<boolean> {
+  if (currentView === 'scan') {
+    return await canLeaveScan()
+  } else if (currentView === 'reorder') {
+    return await canLeaveReorder()
+  } else if (currentView === 'merge') {
+    return await canLeaveMerge()
+  } else if (currentView === 'split') {
+    return await canLeaveSplit()
+  } else if (currentView === 'compress') {
+    return await canLeaveCompress()
+  }
+  return true
+}
+
+/**
+ * Safe navigation with dirty-state guard (used by bottom nav and header settings)
+ */
+export async function safeNavigateTo(targetView: ViewName, payload?: any): Promise<boolean> {
+  if (targetView === currentView && !payload) {
+    return true
+  }
+
+  const allowed = await canLeaveCurrentView()
+  if (!allowed) {
+    // Keep active class synced to current view
+    document.querySelectorAll('.bottom-nav .nav-item').forEach((item) => {
+      const itemTarget = (item as HTMLElement).dataset.view
+      if (itemTarget === currentView) {
+        item.classList.add('active')
+      } else {
+        item.classList.remove('active')
+      }
+    })
+    return false
+  }
+
+  navigateTo(targetView, payload)
+  return true
 }
 
 /**
@@ -95,10 +143,20 @@ export function navigateTo(view: ViewName, payload?: any): void {
     document.body.classList.remove('hide-mobile-header')
   }
 
-  // Auto-configure subtle header back arrow if returned from chained workflow
+  // Hide settings button when in settings view
+  const headerSettingsBtn = document.getElementById('header-settings-btn')
+  if (headerSettingsBtn) {
+    headerSettingsBtn.style.display = view === 'settings' ? 'none' : 'flex'
+  }
+
+  // Auto-configure subtle header back arrow if returned from chained workflow or settings
   if (payload?.returnTo) {
     setHeaderBackAction(() => {
-      navigateTo(payload.returnTo.view, payload.returnTo.payload)
+      safeNavigateTo(payload.returnTo.view, payload.returnTo.payload)
+    })
+  } else if (view === 'settings') {
+    setHeaderBackAction(() => {
+      safeNavigateTo('scan')
     })
   } else {
     setHeaderBackAction(null)

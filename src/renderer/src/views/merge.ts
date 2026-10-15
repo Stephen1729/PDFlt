@@ -27,19 +27,19 @@ export function renderMerge(container: HTMLElement, payload?: any): void {
       <div class="drop-zone-content">
         <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-          <polyline points="17 21 17 13 7 13 7 21"/>
-          <polyline points="7 3 7 8 15 8"/>
+          <path d="M15.5 2H8.6c-.4 0-.8.2-1.1.5-.3.3-.5.7-.5 1.1V18c0 .4.2.8.5 1.1.3.3.7.5 1.1.5h10.8c.4 0 .8-.2 1.1-.5.3-.3.5-.7.5-1.1V6.5L15.5 2z"></path>
+          <path d="M3 7.6v12.8c0 .4.2.8.5 1.1.3.3.7.5 1.1.5h11.8"></path>
+          <path d="M15 2v5h5"></path>
         </svg>
         <h3>Unir PDFs</h3>
-        <p>Toca para seleccionar PDFs</p>
+        <p>Toca para seleccionar los PDFs a unir</p>
       </div>
     </div>
 
     <!-- File list area (visible when files loaded) -->
     <div id="file-list-container" style="display:none; padding: 1rem; width: 100%; max-width: 800px; margin: 0 auto; flex: 1; overflow-y: auto;">
       <h2 style="margin-bottom: 4px;">Unir PDFs</h2>
-      <p style="margin-bottom: 1rem; color: var(--text-muted);">Toca y arrastra los archivos para reordenarlos.</p>
+      <p style="margin-bottom: 1rem; color: var(--text-muted);">Mantén presionado y desliza los archivos para cambiar el orden.</p>
       <div id="file-list" style="display: flex; flex-direction: column; gap: 0.5rem;"></div>
       <button id="add-more-btn" class="btn-secondary" style="margin-top: 1rem; width: 100%;">+ Añadir más PDFs</button>
     </div>
@@ -157,7 +157,7 @@ function renderFileList(): void {
     `
 
     item.innerHTML = `
-      <div class="file-drag-handle" title="Arrastrar para ordenar">
+      <div class="file-drag-handle" title="Mover posición" aria-label="Mover posición">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg>
       </div>
       <span class="file-badge">#${index + 1}</span>
@@ -212,6 +212,25 @@ function renderFileList(): void {
       }
     }
   })
+}
+
+export async function canLeaveMerge(): Promise<boolean> {
+  if (selectedFiles.length <= 1) {
+    resetMerge()
+    return true
+  }
+  const confirmed = await pdfService.promptConfirmDialog({
+    title: '¿Quitar archivos?',
+    message: 'Se eliminarán los archivos seleccionados para unir si cambias de herramienta.',
+    confirmText: 'Quitar y salir',
+    cancelText: 'Continuar editando',
+    isDanger: true
+  })
+  if (confirmed) {
+    resetMerge()
+    return true
+  }
+  return false
 }
 
 export function handleMergeBack(): boolean {
@@ -283,9 +302,21 @@ async function handleMerge(): Promise<void> {
     if (!dialogResult) return // user cancelled
 
     if (dialogResult.action === 'save') {
-      const copied = await pdfService.copyFile(tempResult.outputPath, dialogResult.fileName)
+      const copied = await pdfService.copyFile(
+        tempResult.outputPath,
+        dialogResult.fileName,
+        dialogResult.customDirectory,
+        dialogResult.directoryHandle
+      )
       if (copied) {
         showNotification(`PDF guardado correctamente como ${dialogResult.fileName} (${tempResult.pageCount} páginas)`, 'success')
+        await pdfService.promptSuccessModal({
+          fileName: dialogResult.fileName,
+          fileSize,
+          pageCount: tempResult.pageCount,
+          outputPath: dialogResult.fileName,
+          destinationName: dialogResult.destinationName
+        })
         selectedFiles = []
         renderFileList()
       } else {

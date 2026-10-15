@@ -2,6 +2,7 @@ import Sortable from 'sortablejs'
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 import { pdfService, formatFileSize } from '../services/pdfService'
 import { showNotification, navigateTo } from '../router'
+import type { ScanWorkerRequest, ScanWorkerResponse } from './scanWorker'
 
 export interface Point {
   x: number // 0 to 1
@@ -71,6 +72,26 @@ export function renderScan(container: HTMLElement, payload?: any): void {
   isCropMode = false
 
   renderCurrentStage(container)
+}
+
+export async function canLeaveScan(): Promise<boolean> {
+  if (currentStage === 'drop' || scannedPages.length === 0) {
+    return true
+  }
+  const confirmed = await pdfService.promptConfirmDialog({
+    title: '¿Descartar fotos?',
+    message: 'Se perderán las fotos escaneadas en esta sesión si cambias de herramienta.',
+    confirmText: 'Descartar y salir',
+    cancelText: 'Continuar escaneando',
+    isDanger: true
+  })
+  if (confirmed) {
+    scannedPages = []
+    currentStage = 'drop'
+    if (scanContainer) renderCurrentStage(scanContainer)
+    return true
+  }
+  return false
 }
 
 export function handleScanBack(): boolean {
@@ -319,7 +340,7 @@ function renderDropStage(container: HTMLElement): void {
       </div>
 
       <div style="display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 280px; z-index: 2;">
-        <button id="camera-btn" class="btn-primary" style="padding: 14px 20px; font-size: 1rem; border-radius: 14px; display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);">
+        <button id="camera-btn" class="btn-primary" style="padding: 14px 20px; font-size: 1rem; border-radius: 14px; display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
             <circle cx="12" cy="13" r="4"></circle>
@@ -480,7 +501,7 @@ function renderEditStage(container: HTMLElement): void {
           <div id="crop-overlay-box" class="crop-quad-overlay" style="display: ${isCropMode ? 'block' : 'none'};">
             <svg id="crop-svg" class="crop-svg">
               <path id="crop-mask-path" fill="rgba(0, 0, 0, 0.55)" fill-rule="evenodd"></path>
-              <polygon id="crop-quad-fill" fill="rgba(99, 102, 241, 0.12)" style="cursor: move; pointer-events: auto;"></polygon>
+              <polygon id="crop-quad-fill" fill="rgba(47, 181, 163, 0.12)" style="cursor: move; pointer-events: auto;"></polygon>
               <line id="crop-grid-h1" stroke="rgba(255, 255, 255, 0.35)" stroke-width="1" stroke-dasharray="4,4"></line>
               <line id="crop-grid-h2" stroke="rgba(255, 255, 255, 0.35)" stroke-width="1" stroke-dasharray="4,4"></line>
               <line id="crop-grid-v1" stroke="rgba(255, 255, 255, 0.35)" stroke-width="1" stroke-dasharray="4,4"></line>
@@ -713,28 +734,31 @@ function setupEditStageListeners(container: HTMLElement, currentPage: ScannedPag
 
   async function runWithProcessingFeedback<T>(action: () => Promise<T>): Promise<T> {
     const overlay = document.getElementById('scan-processing-overlay')
-    if (overlay) overlay.style.display = 'flex'
-    // Ensure the browser renders the spinner before the CPU-intensive Canvas work
-    await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 20)))
+    let timer: ReturnType<typeof setTimeout> | null = null
+    if (overlay) {
+      // Debounce: only display the spinner if the operation takes longer than 150ms
+      timer = setTimeout(() => {
+        overlay.style.display = 'flex'
+      }, 150)
+    }
     try {
       return await action()
     } finally {
+      if (timer) clearTimeout(timer)
       if (overlay) overlay.style.display = 'none'
     }
   }
 
-  // Rotate
+  // Rotate (instant, no blocking spinner)
   document.getElementById('rotate-btn')?.addEventListener('click', async () => {
-    await runWithProcessingFeedback(async () => {
-      resizeObserver.disconnect()
-      window.removeEventListener('resize', adjustImageBounds)
-      activeCropUpdater = null
-      currentPage.rotation = (currentPage.rotation + 90) % 360
-      currentPage.crop = getDefaultCrop()
-      isCropMode = false
-      currentPage.processedDataUrl = await processPageImage(currentPage)
-      renderEditStage(container)
-    })
+    resizeObserver.disconnect()
+    window.removeEventListener('resize', adjustImageBounds)
+    activeCropUpdater = null
+    currentPage.rotation = (currentPage.rotation + 90) % 360
+    currentPage.crop = getDefaultCrop()
+    isCropMode = false
+    currentPage.processedDataUrl = await processPageImage(currentPage)
+    renderEditStage(container)
   })
 
   // Crop toggle
@@ -1304,7 +1328,7 @@ function renderCascadeStage(container: HTMLElement): void {
       </div>
 
       <div style="padding: 8px 16px; background: var(--bg-primary); border-bottom: 1px solid var(--border); font-size: 0.8rem; color: var(--text-muted); text-align: center;">
-        Mantén presionado para arrastrar y reordenar las páginas.
+        Mantén presionado y desliza para cambiar el orden de las páginas.
       </div>
 
       <!-- Cascade / Grid area -->
@@ -1538,9 +1562,24 @@ function renderCascadeStage(container: HTMLElement): void {
       if (!dialogResult) return // User cancelled
 
       if (dialogResult.action === 'save') {
-        const saved = await pdfService.copyFile(tempResult.outputPath, dialogResult.fileName)
+        const saved = await pdfService.copyFile(
+          tempResult.outputPath,
+          dialogResult.fileName,
+          dialogResult.customDirectory,
+          dialogResult.directoryHandle
+        )
         if (saved) {
           showNotification(`PDF guardado correctamente como ${dialogResult.fileName} (${tempResult.pageCount} páginas)`, 'success')
+          await pdfService.promptSuccessModal({
+            fileName: dialogResult.fileName,
+            fileSize,
+            pageCount: tempResult.pageCount,
+            outputPath: dialogResult.fileName,
+            destinationName: dialogResult.destinationName
+          })
+          scannedPages = []
+          currentStage = 'drop'
+          renderCurrentStage(container)
         } else {
           showNotification('Error al guardar el archivo', 'error')
         }
@@ -1572,142 +1611,121 @@ function readFileAsDataUrl(file: File): Promise<string> {
   })
 }
 
-function warpPerspective(
-  srcCanvas: HTMLCanvasElement,
-  quad: [Point, Point, Point, Point], // [p0=tl, p1=tr, p2=br, p3=bl] in srcCanvas pixel coordinates
+/* ═══════════════════════════════════════════
+   Web Worker Manager para Procesamiento de Imagen
+   ═══════════════════════════════════════════ */
+
+let scanWorkerInstance: Worker | null = null
+let nextWorkerRequestId = 1
+const pendingWorkerRequests = new Map<
+  number,
+  {
+    resolve: (res: ScanWorkerResponse) => void
+    reject: (err: any) => void
+  }
+>()
+
+function getScanWorker(): Worker | null {
+  if (typeof Worker === 'undefined') return null
+  if (!scanWorkerInstance) {
+    try {
+      scanWorkerInstance = new Worker(new URL('./scanWorker.ts', import.meta.url), {
+        type: 'module'
+      })
+      scanWorkerInstance.onmessage = (e: MessageEvent<ScanWorkerResponse>) => {
+        const handler = pendingWorkerRequests.get(e.data.id)
+        if (handler) {
+          pendingWorkerRequests.delete(e.data.id)
+          if (e.data.error) {
+            handler.reject(new Error(e.data.error))
+          } else {
+            handler.resolve(e.data)
+          }
+        }
+      }
+      scanWorkerInstance.onerror = (err) => {
+        console.error('Scan worker error:', err)
+      }
+    } catch (err) {
+      console.warn('Could not initialize scan worker, using synchronous fallback:', err)
+      scanWorkerInstance = null
+    }
+  }
+  return scanWorkerInstance
+}
+
+function executeScanFallback(
+  srcBuffer: ArrayBuffer,
+  srcW: number,
+  srcH: number,
+  quad: [Point, Point, Point, Point],
   targetW: number,
-  targetH: number
-): HTMLCanvasElement {
-  const dstCanvas = document.createElement('canvas')
-  dstCanvas.width = targetW
-  dstCanvas.height = targetH
-  const dstCtx = dstCanvas.getContext('2d', { willReadFrequently: true })!
+  targetH: number,
+  isDefaultCrop: boolean,
+  filter: 'raw' | 'bw' | 'color'
+): ScanWorkerResponse {
+  const srcData = new Uint8ClampedArray(srcBuffer)
+  let dstBuffer: ArrayBuffer
+  let dstData: Uint8ClampedArray
+  let finalW = srcW
+  let finalH = srcH
 
-  const [p0, p1, p2, p3] = quad
-  const srcW = srcCanvas.width
-  const srcH = srcCanvas.height
+  if (isDefaultCrop) {
+    dstBuffer = srcBuffer
+    dstData = srcData
+  } else {
+    finalW = targetW
+    finalH = targetH
+    dstBuffer = new ArrayBuffer(targetW * targetH * 4)
+    dstData = new Uint8ClampedArray(dstBuffer)
 
-  // Quick check: is it an axis-aligned rectangle?
-  const eps = 0.5
-  const isRect =
-    Math.abs(p0.y - p1.y) < eps &&
-    Math.abs(p3.y - p2.y) < eps &&
-    Math.abs(p0.x - p3.x) < eps &&
-    Math.abs(p1.x - p2.x) < eps
+    const [p0, p1, p2, p3] = quad
+    const dx1 = p1.x - p2.x
+    const dx2 = p3.x - p2.x
+    const dx3 = p0.x - p1.x + p2.x - p3.x
+    const dy1 = p1.y - p2.y
+    const dy2 = p3.y - p2.y
+    const dy3 = p0.y - p1.y + p2.y - p3.y
+    const det = dx1 * dy2 - dy1 * dx2
+    const useHomography = Math.abs(det) > 1e-7
 
-  if (isRect) {
-    const sx = Math.max(0, Math.min(srcW - 1, Math.round(p0.x)))
-    const sy = Math.max(0, Math.min(srcH - 1, Math.round(p0.y)))
-    const sw = Math.max(1, Math.min(srcW - sx, Math.round(p1.x - p0.x)))
-    const sh = Math.max(1, Math.min(srcH - sy, Math.round(p3.y - p0.y)))
-    dstCtx.drawImage(srcCanvas, sx, sy, sw, sh, 0, 0, targetW, targetH)
-    return dstCanvas
-  }
-
-  const srcCtx = srcCanvas.getContext('2d', { willReadFrequently: true })!
-  const srcImgData = srcCtx.getImageData(0, 0, srcW, srcH)
-  const srcData = srcImgData.data
-  const dstImgData = dstCtx.createImageData(targetW, targetH)
-  const dstData = dstImgData.data
-
-  const dx1 = p1.x - p2.x
-  const dx2 = p3.x - p2.x
-  const dx3 = p0.x - p1.x + p2.x - p3.x
-  const dy1 = p1.y - p2.y
-  const dy2 = p3.y - p2.y
-  const dy3 = p0.y - p1.y + p2.y - p3.y
-
-  const det = dx1 * dy2 - dy1 * dx2
-  const useHomography = Math.abs(det) > 1e-7
-
-  let a = 0, b = 0, c = 0, d = 0, e = 0, f = 0, g = 0, h = 0
-  if (useHomography) {
-    g = (dx3 * dy2 - dy3 * dx2) / det
-    h = (dx1 * dy3 - dy1 * dx3) / det
-    a = p1.x - p0.x + g * p1.x
-    b = p3.x - p0.x + h * p3.x
-    c = p0.x
-    d = p1.y - p0.y + g * p1.y
-    e = p3.y - p0.y + h * p3.y
-    f = p0.y
-  }
-
-  let dstIdx = 0
-  const srcW_minus_1 = srcW - 1
-  const srcH_minus_1 = srcH - 1
-
-  for (let y = 0; y < targetH; y++) {
-    const v = y / targetH
+    let a = 0, b = 0, c = 0, d = 0, e = 0, f = 0, g = 0, h = 0
     if (useHomography) {
+      g = (dx3 * dy2 - dy3 * dx2) / det
+      h = (dx1 * dy3 - dy1 * dx3) / det
+      a = p1.x - p0.x + g * p1.x
+      b = p3.x - p0.x + h * p3.x
+      c = p0.x
+      d = p1.y - p0.y + g * p1.y
+      e = p3.y - p0.y + h * p3.y
+      f = p0.y
+    }
+
+    let dstIdx = 0
+    const srcW_1 = srcW - 1
+    const srcH_1 = srcH - 1
+
+    for (let y = 0; y < targetH; y++) {
+      const v = y / targetH
       const bv_c = b * v + c
       const ev_f = e * v + f
       const hv_1 = h * v + 1
-
       for (let x = 0; x < targetW; x++) {
         const u = x / targetW
         const denom = g * u + hv_1
-        const sx = (a * u + bv_c) / denom
-        const sy = (d * u + ev_f) / denom
-
+        const sx = useHomography ? (a * u + bv_c) / denom : u * srcW
+        const sy = useHomography ? (d * u + ev_f) / denom : v * srcH
         const x0 = Math.floor(sx)
         const y0 = Math.floor(sy)
-
-        if (x0 >= 0 && x0 < srcW_minus_1 && y0 >= 0 && y0 < srcH_minus_1) {
+        if (x0 >= 0 && x0 < srcW_1 && y0 >= 0 && y0 < srcH_1) {
           const fx = sx - x0
           const fy = sy - y0
-          const fx1 = 1 - fx
-          const fy1 = 1 - fy
-
           const idx00 = (y0 * srcW + x0) * 4
           const idx10 = idx00 + 4
           const idx01 = idx00 + srcW * 4
           const idx11 = idx01 + 4
-
-          const w00 = fx1 * fy1
-          const w10 = fx * fy1
-          const w01 = fx1 * fy
-          const w11 = fx * fy
-
-          dstData[dstIdx] = (srcData[idx00] * w00 + srcData[idx10] * w10 + srcData[idx01] * w01 + srcData[idx11] * w11) | 0
-          dstData[dstIdx + 1] = (srcData[idx00 + 1] * w00 + srcData[idx10 + 1] * w10 + srcData[idx01 + 1] * w01 + srcData[idx11 + 1] * w11) | 0
-          dstData[dstIdx + 2] = (srcData[idx00 + 2] * w00 + srcData[idx10 + 2] * w10 + srcData[idx01 + 2] * w01 + srcData[idx11 + 2] * w11) | 0
-          dstData[dstIdx + 3] = 255
-        } else if (x0 >= 0 && x0 <= srcW_minus_1 && y0 >= 0 && y0 <= srcH_minus_1) {
-          const idx = (y0 * srcW + x0) * 4
-          dstData[dstIdx] = srcData[idx]
-          dstData[dstIdx + 1] = srcData[idx + 1]
-          dstData[dstIdx + 2] = srcData[idx + 2]
-          dstData[dstIdx + 3] = 255
-        }
-        dstIdx += 4
-      }
-    } else {
-      const v1 = 1 - v
-      for (let x = 0; x < targetW; x++) {
-        const u = x / targetW
-        const u1 = 1 - u
-        const w0 = u1 * v1
-        const w1 = u * v1
-        const w2 = u * v
-        const w3 = u1 * v
-
-        const sx = w0 * p0.x + w1 * p1.x + w2 * p2.x + w3 * p3.x
-        const sy = w0 * p0.y + w1 * p1.y + w2 * p2.y + w3 * p3.y
-
-        const x0 = Math.floor(sx)
-        const y0 = Math.floor(sy)
-
-        if (x0 >= 0 && x0 < srcW_minus_1 && y0 >= 0 && y0 < srcH_minus_1) {
-          const fx = sx - x0
-          const fy = sy - y0
           const fx1 = 1 - fx
           const fy1 = 1 - fy
-
-          const idx00 = (y0 * srcW + x0) * 4
-          const idx10 = idx00 + 4
-          const idx01 = idx00 + srcW * 4
-          const idx11 = idx01 + 4
-
           dstData[dstIdx] = (srcData[idx00] * fx1 * fy1 + srcData[idx10] * fx * fy1 + srcData[idx01] * fx1 * fy + srcData[idx11] * fx * fy) | 0
           dstData[dstIdx + 1] = (srcData[idx00 + 1] * fx1 * fy1 + srcData[idx10 + 1] * fx * fy1 + srcData[idx01 + 1] * fx1 * fy + srcData[idx11 + 1] * fx * fy) | 0
           dstData[dstIdx + 2] = (srcData[idx00 + 2] * fx1 * fy1 + srcData[idx10 + 2] * fx * fy1 + srcData[idx01 + 2] * fx1 * fy + srcData[idx11 + 2] * fx * fy) | 0
@@ -1718,8 +1736,57 @@ function warpPerspective(
     }
   }
 
-  dstCtx.putImageData(dstImgData, 0, 0)
-  return dstCanvas
+  if (filter === 'bw') {
+    for (let i = 0; i < dstData.length; i += 4) {
+      const gray = 0.299 * dstData[i] + 0.587 * dstData[i + 1] + 0.114 * dstData[i + 2]
+      const val = gray > 140 ? 255 : Math.max(0, (gray * 0.7) | 0)
+      dstData[i] = val
+      dstData[i + 1] = val
+      dstData[i + 2] = val
+    }
+  } else if (filter === 'color') {
+    const factor = 1.22
+    for (let i = 0; i < dstData.length; i += 4) {
+      dstData[i] = Math.min(255, Math.max(0, ((dstData[i] - 128) * factor + 146) | 0))
+      dstData[i + 1] = Math.min(255, Math.max(0, ((dstData[i + 1] - 128) * factor + 146) | 0))
+      dstData[i + 2] = Math.min(255, Math.max(0, ((dstData[i + 2] - 128) * factor + 146) | 0))
+    }
+  }
+
+  return { id: 0, dstBuffer, width: finalW, height: finalH }
+}
+
+async function executeScanWorker(
+  srcBuffer: ArrayBuffer,
+  srcW: number,
+  srcH: number,
+  quad: [Point, Point, Point, Point],
+  targetW: number,
+  targetH: number,
+  isDefaultCrop: boolean,
+  filter: 'raw' | 'bw' | 'color'
+): Promise<ScanWorkerResponse> {
+  const worker = getScanWorker()
+  if (!worker) {
+    return executeScanFallback(srcBuffer, srcW, srcH, quad, targetW, targetH, isDefaultCrop, filter)
+  }
+
+  const id = nextWorkerRequestId++
+  return new Promise<ScanWorkerResponse>((resolve, reject) => {
+    pendingWorkerRequests.set(id, { resolve, reject })
+    const req: ScanWorkerRequest = {
+      id,
+      srcBuffer,
+      srcW,
+      srcH,
+      quad,
+      targetW,
+      targetH,
+      isDefaultCrop,
+      filter
+    }
+    worker.postMessage(req, [srcBuffer] as any)
+  })
 }
 
 function processPageImage(page: ScannedPage): Promise<string> {
@@ -1737,98 +1804,95 @@ function processPageImage(page: ScannedPage): Promise<string> {
     img.onerror = () => {
       resolve(page.originalDataUrl)
     }
-    img.onload = () => {
-      // 1. Rotate source image onto an intermediate canvas
-      const isRotated = page.rotation === 90 || page.rotation === 270
-      const rotCanvas = document.createElement('canvas')
-      rotCanvas.width = isRotated ? img.height : img.width
-      rotCanvas.height = isRotated ? img.width : img.height
-      const rotCtx = rotCanvas.getContext('2d', { willReadFrequently: true })!
+    img.onload = async () => {
+      try {
+        // 1. Rotate source image onto an intermediate canvas (GPU-accelerated 2D canvas)
+        const isRotated = page.rotation === 90 || page.rotation === 270
+        const rotCanvas = document.createElement('canvas')
+        rotCanvas.width = isRotated ? img.height : img.width
+        rotCanvas.height = isRotated ? img.width : img.height
+        const rotCtx = rotCanvas.getContext('2d', { willReadFrequently: true })!
 
-      rotCtx.save()
-      if (page.rotation === 90) {
-        rotCtx.translate(rotCanvas.width, 0)
-        rotCtx.rotate((90 * Math.PI) / 180)
-      } else if (page.rotation === 180) {
-        rotCtx.translate(rotCanvas.width, rotCanvas.height)
-        rotCtx.rotate((180 * Math.PI) / 180)
-      } else if (page.rotation === 270) {
-        rotCtx.translate(0, rotCanvas.height)
-        rotCtx.rotate((270 * Math.PI) / 180)
-      }
-      rotCtx.drawImage(img, 0, 0)
-      rotCtx.restore()
-
-      // 2. Calculate crop points in pixel coordinates on the rotated canvas
-      const rw = rotCanvas.width
-      const rh = rotCanvas.height
-      const crop = page.crop && page.crop.tl ? page.crop : getDefaultCrop()
-      const p0: Point = { x: crop.tl.x * rw, y: crop.tl.y * rh }
-      const p1: Point = { x: crop.tr.x * rw, y: crop.tr.y * rh }
-      const p2: Point = { x: crop.br.x * rw, y: crop.br.y * rh }
-      const p3: Point = { x: crop.bl.x * rw, y: crop.bl.y * rh }
-
-      // 3. Compute target rectangular dimensions from quad edges
-      const topW = Math.hypot(p1.x - p0.x, p1.y - p0.y)
-      const botW = Math.hypot(p2.x - p3.x, p2.y - p3.y)
-      let targetW = Math.max(topW, botW)
-
-      const leftH = Math.hypot(p3.x - p0.x, p3.y - p0.y)
-      const rightH = Math.hypot(p2.x - p1.x, p2.y - p1.y)
-      let targetH = Math.max(leftH, rightH)
-
-      // 4. Downsample if larger than maxDim (1800px)
-      const maxDim = 1800
-      if (targetW > maxDim || targetH > maxDim) {
-        if (targetW > targetH) {
-          targetH = Math.round((targetH * maxDim) / targetW)
-          targetW = maxDim
-        } else {
-          targetW = Math.round((targetW * maxDim) / targetH)
-          targetH = maxDim
+        rotCtx.save()
+        if (page.rotation === 90) {
+          rotCtx.translate(rotCanvas.width, 0)
+          rotCtx.rotate((90 * Math.PI) / 180)
+        } else if (page.rotation === 180) {
+          rotCtx.translate(rotCanvas.width, rotCanvas.height)
+          rotCtx.rotate((180 * Math.PI) / 180)
+        } else if (page.rotation === 270) {
+          rotCtx.translate(0, rotCanvas.height)
+          rotCtx.rotate((270 * Math.PI) / 180)
         }
-      }
-      targetW = Math.max(50, Math.round(targetW))
-      targetH = Math.max(50, Math.round(targetH))
+        rotCtx.drawImage(img, 0, 0)
+        rotCtx.restore()
 
-      // 5. Warp quad into rectangular destination canvas (Perspective Dewarping)
-      const canvas = warpPerspective(rotCanvas, [p0, p1, p2, p3], targetW, targetH)
-      const ctx = canvas.getContext('2d')!
+        const defaultCrop = isDefaultCrop(page.crop)
 
-      // 6. Filters
-      if (page.filter !== 'raw') {
-        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-        const d = imgData.data
+        // Super-fast path: rotated but default crop and raw filter (no worker or pixel copying needed!)
+        if (defaultCrop && page.filter === 'raw') {
+          resolve(rotCanvas.toDataURL('image/jpeg', 0.88))
+          return
+        }
 
-        for (let i = 0; i < d.length; i += 4) {
-          const r = d[i]
-          const g = d[i + 1]
-          const b = d[i + 2]
-          const gray = 0.299 * r + 0.587 * g + 0.114 * b
+        // 2. Calculate crop points in pixel coordinates on the rotated canvas
+        const rw = rotCanvas.width
+        const rh = rotCanvas.height
+        const crop = page.crop && page.crop.tl ? page.crop : getDefaultCrop()
+        const p0: Point = { x: crop.tl.x * rw, y: crop.tl.y * rh }
+        const p1: Point = { x: crop.tr.x * rw, y: crop.tr.y * rh }
+        const p2: Point = { x: crop.br.x * rw, y: crop.br.y * rh }
+        const p3: Point = { x: crop.bl.x * rw, y: crop.bl.y * rh }
 
-          if (page.filter === 'bw') {
-            // Scanner document effect: clean paper background -> pure white 255. Text ink -> darker.
-            let val = gray
-            if (val > 140) {
-              val = 255
-            } else {
-              val = Math.max(0, val * 0.7)
-            }
-            d[i] = val
-            d[i + 1] = val
-            d[i + 2] = val
-          } else if (page.filter === 'color') {
-            // Color enhanced: brighten whites while keeping colors saturated
-            const factor = 1.22
-            d[i] = Math.min(255, Math.max(0, (r - 128) * factor + 128 + 18))
-            d[i + 1] = Math.min(255, Math.max(0, (g - 128) * factor + 128 + 18))
-            d[i + 2] = Math.min(255, Math.max(0, (b - 128) * factor + 128 + 18))
+        // 3. Compute target rectangular dimensions from quad edges
+        const topW = Math.hypot(p1.x - p0.x, p1.y - p0.y)
+        const botW = Math.hypot(p2.x - p3.x, p2.y - p3.y)
+        let targetW = Math.max(topW, botW)
+
+        const leftH = Math.hypot(p3.x - p0.x, p3.y - p0.y)
+        const rightH = Math.hypot(p2.x - p1.x, p2.y - p1.y)
+        let targetH = Math.max(leftH, rightH)
+
+        // 4. Downsample if larger than maxDim (1800px)
+        const maxDim = 1800
+        if (targetW > maxDim || targetH > maxDim) {
+          if (targetW > targetH) {
+            targetH = Math.round((targetH * maxDim) / targetW)
+            targetW = maxDim
+          } else {
+            targetW = Math.round((targetW * maxDim) / targetH)
+            targetH = maxDim
           }
         }
-        ctx.putImageData(imgData, 0, 0)
-      }
+        targetW = Math.max(50, Math.round(targetW))
+        targetH = Math.max(50, Math.round(targetH))
 
-      resolve(canvas.toDataURL('image/jpeg', 0.88))
+        // 5. Transfer pixel buffer to Web Worker for off-thread perspective warp + filters
+        const srcImgData = rotCtx.getImageData(0, 0, rw, rh)
+        const { dstBuffer, width, height } = await executeScanWorker(
+          srcImgData.data.buffer,
+          rw,
+          rh,
+          [p0, p1, p2, p3],
+          targetW,
+          targetH,
+          defaultCrop,
+          page.filter
+        )
+
+        // 6. Draw processed buffer back onto canvas
+        const outCanvas = document.createElement('canvas')
+        outCanvas.width = width
+        outCanvas.height = height
+        const outCtx = outCanvas.getContext('2d')!
+        const finalImgData = new ImageData(new Uint8ClampedArray(dstBuffer), width, height)
+        outCtx.putImageData(finalImgData, 0, 0)
+
+        resolve(outCanvas.toDataURL('image/jpeg', 0.88))
+      } catch (e) {
+        console.error('Error processing page image:', e)
+        resolve(page.originalDataUrl)
+      }
     }
     img.src = page.originalDataUrl
   })

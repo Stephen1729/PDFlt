@@ -1,54 +1,56 @@
 :root {
-  /* ── Background ── */
-  --bg-primary: #111111;
-  --bg-secondary: #1a1a1a;
-  --bg-tertiary: #23252f;
-  --bg-surface: #1c1e26;
-  --bg-card: #222222;
-  --bg-card-hover: #2a2a2a;
-  --bg-input: #0a0a0a;
+  /* ── Background & Surfaces (Carbon / Olive Dark) ── */
+  --bg-primary: #111312;
+  --bg-secondary: #161817;
+  --bg-tertiary: #1f2221;
+  --bg-surface: #1a1c1b;
+  --bg-card: #1a1c1b;
+  --bg-card-hover: #232625;
+  --bg-input: #141615;
 
-  /* ── Text ── */
-  --text-primary: #f3f3f3;
+  /* ── Typography ── */
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --text-primary: #e8eae8;
   --text: var(--text-primary);
-  --text-secondary: #b3b3b3;
-  --text-muted: #737373;
+  --text-secondary: #9ba19e;
+  --text-muted: #9ba19e;
 
-  /* ── Accent ── */
-  --accent: #2b70c9;
+  /* ── Accent (Teal) ── */
+  --accent: #2fb5a3;
   --primary: var(--accent);
-  --accent-hover: #3d8bf0;
-  --accent-soft: rgba(43, 112, 201, 0.12);
-  --accent-glow: rgba(43, 112, 201, 0.25);
+  --accent-hover: #3dd4c0;
+  --accent-soft: rgba(47, 181, 163, 0.14);
+  --accent-glow: rgba(0, 0, 0, 0.45);
 
   /* ── Status ── */
-  --success: #4ade80;
-  --success-soft: rgba(74, 222, 128, 0.12);
+  --success: #34d399;
+  --success-soft: rgba(52, 211, 153, 0.14);
   --warning: #fbbf24;
-  --warning-soft: rgba(251, 191, 36, 0.12);
+  --warning-soft: rgba(251, 191, 36, 0.14);
   --error: #f87171;
-  --error-soft: rgba(248, 113, 113, 0.12);
+  --error-soft: rgba(248, 113, 113, 0.14);
 
-  /* ── Borders ── */
-  --border: #2a2a2a;
-  --border-light: #3d3d3d;
+  /* ── Borders & Glass ── */
+  --border: #2e3231;
+  --border-light: rgba(46, 50, 49, 0.65);
+  --glass-shine: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 
   /* ── Geometry ── */
   --radius-xs: 6px;
   --radius-sm: 8px;
-  --radius: 12px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 20px;
+  --radius: 14px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
 
   /* ── Shadows ── */
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.25);
-  --shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
-  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.45);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.65);
 
   /* ── Motion ── */
-  --ease: cubic-bezier(0.4, 0, 0.2, 1);
-  --duration: 200ms;
-  --duration-slow: 350ms;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration: 180ms;
+  --duration-slow: 320ms;
 }
 

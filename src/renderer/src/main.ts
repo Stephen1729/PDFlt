@@ -2,7 +2,7 @@ import './styles/theme.css'
 import './styles/global.css'
 import './styles/components.css'
 import { App } from '@capacitor/app'
-import { navigateTo, triggerBack, ViewName } from './router'
+import { navigateTo, safeNavigateTo, triggerBack, ViewName } from './router'
 
 // Subtle Header back button click
 document.getElementById('header-back-btn')?.addEventListener('click', () => {
@@ -28,20 +28,20 @@ window.addEventListener('keydown', (e) => {
   }
 })
 
-// Setup bottom-nav event listeners
+// Setup bottom-nav event listeners with dirty-state guard
 document.querySelectorAll('.nav-item').forEach((item) => {
-  item.addEventListener('click', (e) => {
+  item.addEventListener('click', async (e) => {
     e.preventDefault()
     const view = (item as HTMLElement).dataset.view
     if (view) {
-      navigateTo(view as ViewName)
+      await safeNavigateTo(view as ViewName)
     }
   })
 })
 
-// Header settings button click
-document.getElementById('header-settings-btn')?.addEventListener('click', () => {
-  navigateTo('settings')
+// Header settings button click with dirty-state guard
+document.getElementById('header-settings-btn')?.addEventListener('click', async () => {
+  await safeNavigateTo('settings')
 })
 
 // Prevent default drag and drop behavior for the entire window

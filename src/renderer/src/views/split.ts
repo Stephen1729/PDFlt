@@ -2,6 +2,7 @@ import { pdfService, formatFileSize } from '../services/pdfService'
 import * as pdfjsLib from 'pdfjs-dist'
 import { showNotification, navigateTo } from '../router'
 import type { PdfFileInfo } from '../../../shared/types'
+import { isNativePdfSupported, renderNativeThumbnail, clearNativePdfCache } from '../services/nativePdfService'
 
 // Configure pdf.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -14,6 +15,7 @@ let currentFilePath: string | null = null
 let currentFileName: string = ''
 let totalPageCount = 0
 let selectedPages: Set<number> = new Set()
+let currentObserver: IntersectionObserver | null = null
 
 export function renderSplit(container: HTMLElement, payload?: any): void {
   const isRestoring = payload?.restoreState && currentFilePath
@@ -137,6 +139,25 @@ function setupEventListeners(): void {
   document.getElementById('close-file-btn')?.addEventListener('click', () => handleSplitBack())
 }
 
+export async function canLeaveSplit(): Promise<boolean> {
+  if (!currentFilePath || selectedPages.size === 0) {
+    resetSplit()
+    return true
+  }
+  const confirmed = await pdfService.promptConfirmDialog({
+    title: '¿Cerrar PDF?',
+    message: 'Se desmarcarán las páginas seleccionadas para extraer si cambias de herramienta.',
+    confirmText: 'Cerrar y salir',
+    cancelText: 'Continuar editando',
+    isDanger: true
+  })
+  if (confirmed) {
+    resetSplit()
+    return true
+  }
+  return false
+}
+
 export function handleSplitBack(): boolean {
   if (!currentFilePath) return false
 
@@ -161,10 +182,15 @@ export function handleSplitBack(): boolean {
 }
 
 export function resetSplit(): void {
+  if (currentObserver) {
+    currentObserver.disconnect()
+    currentObserver = null
+  }
   currentFilePath = null
   currentFileName = ''
   totalPageCount = 0
   selectedPages.clear()
+  clearNativePdfCache().catch(() => {})
 
   const dropZone = document.getElementById('drop-zone')
   const thumbnailsScroll = document.getElementById('thumbnails-scroll')
@@ -213,11 +239,17 @@ async function loadPdf(fileInfo: PdfFileInfo): Promise<void> {
 
 async function renderThumbnails(filePath: string, pageCount: number): Promise<void> {
   const grid = document.getElementById('thumbnails-grid')!
+  const scrollContainer = document.getElementById('thumbnails-scroll')
+
+  if (currentObserver) {
+    currentObserver.disconnect()
+    currentObserver = null
+  }
 
   grid.innerHTML = `
     <div class="loading-container" style="grid-column: 1 / -1">
       <div class="spinner"></div>
-      <span class="loading-text">Cargando páginas...</span>
+      <span class="loading-text">Cargando documento...</span>
     </div>
   `
 
@@ -229,27 +261,38 @@ async function renderThumbnails(filePath: string, pageCount: number): Promise<vo
 
     grid.innerHTML = ''
 
+    const renderedPages = new Set<number>()
+
+    // Set up Lazy IntersectionObserver for high performance
+    currentObserver = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            const card = entry.target as HTMLElement
+            const pageIdx = parseInt(card.dataset.pageIndex!, 10)
+            if (!renderedPages.has(pageIdx)) {
+              renderedPages.add(pageIdx)
+              renderSingleThumbnail(pdf, pageIdx, card)
+            }
+            currentObserver?.unobserve(card)
+          }
+        }
+      },
+      {
+        root: scrollContainer,
+        rootMargin: '300px 0px' // Pre-render 300px before scrolling into view
+      }
+    )
+
+    // Build all skeleton cards instantly with DocumentFragment (1-2ms even for 100+ pages)
+    const fragment = document.createDocumentFragment()
     for (let i = 0; i < pageCount; i++) {
-      const page = await pdf.getPage(i + 1)
-      const desiredWidth = 320
-      const originalViewport = page.getViewport({ scale: 1 })
-      const scale = desiredWidth / originalViewport.width
-      const viewport = page.getViewport({ scale })
-
-      const canvas = document.createElement('canvas')
-      canvas.width = Math.floor(viewport.width)
-      canvas.height = Math.floor(viewport.height)
-
-      const ctx = canvas.getContext('2d')!
-      await page.render({ canvasContext: ctx, viewport }).promise
-
       const card = document.createElement('div')
       card.className = 'thumbnail-card selectable'
       card.dataset.pageIndex = String(i)
 
       const imageDiv = document.createElement('div')
-      imageDiv.className = 'thumbnail-image'
-      imageDiv.appendChild(canvas)
+      imageDiv.className = 'thumbnail-image skeleton-thumb'
 
       const label = document.createElement('div')
       label.className = 'thumbnail-label'
@@ -257,7 +300,7 @@ async function renderThumbnails(filePath: string, pageCount: number): Promise<vo
 
       card.appendChild(imageDiv)
       card.appendChild(label)
-      
+
       card.addEventListener('click', () => {
         const pageIdx = parseInt(card.dataset.pageIndex!, 10)
         if (selectedPages.has(pageIdx)) {
@@ -270,8 +313,11 @@ async function renderThumbnails(filePath: string, pageCount: number): Promise<vo
         updateSelectionInfo()
       })
 
-      grid.appendChild(card)
+      fragment.appendChild(card)
+      currentObserver.observe(card)
     }
+
+    grid.appendChild(fragment)
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     grid.innerHTML = `
@@ -282,6 +328,51 @@ async function renderThumbnails(filePath: string, pageCount: number): Promise<vo
       </div>
     `
     document.getElementById('retry-btn')?.addEventListener('click', handleOpenFile)
+  }
+}
+
+async function renderSingleThumbnail(pdf: any, pageIdx: number, card: HTMLElement): Promise<void> {
+  try {
+    // Try high-speed native Android PdfRenderer (C++ PDFium) first
+    if (currentFilePath && isNativePdfSupported()) {
+      const nativeSrc = await renderNativeThumbnail(currentFilePath, pageIdx, 320)
+      if (nativeSrc) {
+        const imageDiv = card.querySelector('.thumbnail-image')
+        if (imageDiv) {
+          imageDiv.innerHTML = ''
+          imageDiv.classList.remove('skeleton-thumb')
+          const img = document.createElement('img')
+          img.src = nativeSrc
+          img.loading = 'lazy'
+          img.alt = `Pág. ${pageIdx + 1}`
+          imageDiv.appendChild(img)
+          return
+        }
+      }
+    }
+
+    // PDF.js fallback
+    const page = await pdf.getPage(pageIdx + 1)
+    const desiredWidth = 320
+    const originalViewport = page.getViewport({ scale: 1 })
+    const scale = desiredWidth / originalViewport.width
+    const viewport = page.getViewport({ scale })
+
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.floor(viewport.width)
+    canvas.height = Math.floor(viewport.height)
+
+    const ctx = canvas.getContext('2d')!
+    await page.render({ canvasContext: ctx, viewport }).promise
+
+    const imageDiv = card.querySelector('.thumbnail-image')
+    if (imageDiv) {
+      imageDiv.innerHTML = ''
+      imageDiv.classList.remove('skeleton-thumb')
+      imageDiv.appendChild(canvas)
+    }
+  } catch (renderErr) {
+    console.warn(`Lazy render error on page ${pageIdx + 1}:`, renderErr)
   }
 }
 
@@ -389,9 +480,21 @@ async function handleExtract(): Promise<void> {
     if (!dialogResult) return // user cancelled
 
     if (dialogResult.action === 'save') {
-      const copied = await pdfService.copyFile(tempResult.outputPath, dialogResult.fileName)
+      const copied = await pdfService.copyFile(
+        tempResult.outputPath,
+        dialogResult.fileName,
+        dialogResult.customDirectory,
+        dialogResult.directoryHandle
+      )
       if (copied) {
         showNotification(`PDF guardado correctamente como ${dialogResult.fileName} (${tempResult.pageCount} páginas)`, 'success')
+        await pdfService.promptSuccessModal({
+          fileName: dialogResult.fileName,
+          fileSize,
+          pageCount: tempResult.pageCount,
+          outputPath: dialogResult.fileName,
+          destinationName: dialogResult.destinationName
+        })
       } else {
         showNotification('Error al guardar el archivo', 'error')
       }

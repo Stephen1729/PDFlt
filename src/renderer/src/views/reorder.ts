@@ -3,6 +3,7 @@ import * as pdfjsLib from 'pdfjs-dist'
 import Sortable from 'sortablejs'
 import { navigateTo, showNotification } from '../router'
 import type { PdfFileInfo } from '../../../shared/types'
+import { isNativePdfSupported, renderNativeThumbnail, clearNativePdfCache } from '../services/nativePdfService'
 
 // Configure pdf.js worker
 // Use new URL() + import.meta.url so Vite resolves and bundles the worker file
@@ -16,6 +17,7 @@ let currentFilePath: string | null = null
 let currentFileName: string = ''
 let currentPageOrder: number[] = []
 let originalPageCount = 0
+let currentObserver: IntersectionObserver | null = null
 
 /**
  * Renders the reorder view:
@@ -63,7 +65,7 @@ export function renderReorder(container: HTMLElement, payload?: any): void {
         </div>
       </div>
       <p style="color: var(--text-muted); font-size: 0.88rem; margin-bottom: 1rem;">
-        Arrastra las páginas para cambiar su orden.
+        Mantén presionada una página y deslízala para reordenar.
       </p>
       <div id="thumbnails-grid" class="thumbnails-grid"></div>
     </div>
@@ -140,6 +142,29 @@ function setupEventListeners(): void {
   document.getElementById('close-file-btn')?.addEventListener('click', () => handleReorderBack())
 }
 
+export async function canLeaveReorder(): Promise<boolean> {
+  if (!currentFilePath) {
+    return true
+  }
+  const isOrderChanged = currentPageOrder.some((p, i) => p !== i)
+  if (isOrderChanged) {
+    const confirmed = await pdfService.promptConfirmDialog({
+      title: '¿Descartar cambios?',
+      message: 'Se perderá el orden personalizado de las páginas si cambias de herramienta.',
+      confirmText: 'Descartar y salir',
+      cancelText: 'Continuar editando',
+      isDanger: true
+    })
+    if (confirmed) {
+      resetReorder()
+      return true
+    }
+    return false
+  }
+  resetReorder()
+  return true
+}
+
 export function handleReorderBack(): boolean {
   if (!currentFilePath) return false
 
@@ -165,10 +190,15 @@ export function handleReorderBack(): boolean {
 }
 
 export function resetReorder(): void {
+  if (currentObserver) {
+    currentObserver.disconnect()
+    currentObserver = null
+  }
   currentFilePath = null
   currentFileName = ''
   currentPageOrder = []
   originalPageCount = 0
+  clearNativePdfCache().catch(() => {})
 
   const dropZone = document.getElementById('drop-zone')
   const thumbnailsScroll = document.getElementById('thumbnails-scroll')
@@ -226,17 +256,23 @@ async function loadPdf(fileInfo: PdfFileInfo): Promise<void> {
 
 async function renderThumbnails(filePath: string, pageCount: number): Promise<void> {
   const grid = document.getElementById('thumbnails-grid')!
+  const scrollContainer = document.getElementById('thumbnails-scroll')
+
+  if (currentObserver) {
+    currentObserver.disconnect()
+    currentObserver = null
+  }
 
   // Show loading
   grid.innerHTML = `
     <div class="loading-container" style="grid-column: 1 / -1">
       <div class="spinner"></div>
-      <span class="loading-text">Cargando páginas...</span>
+      <span class="loading-text">Cargando documento...</span>
     </div>
   `
 
   try {
-    // Read file bytes from main process
+    // Read file bytes from main process (direct binary Uint8Array)
     const arrayBuffer = await pdfService.readPdfFile(filePath)
 
     // Load with pdf.js
@@ -246,33 +282,39 @@ async function renderThumbnails(filePath: string, pageCount: number): Promise<vo
 
     grid.innerHTML = ''
 
-    // Render each page thumbnail progressively
+    const renderedPages = new Set<number>()
+
+    // Set up Lazy IntersectionObserver for high performance
+    currentObserver = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            const card = entry.target as HTMLElement
+            const pageIdx = parseInt(card.dataset.pageIndex!, 10)
+            if (!renderedPages.has(pageIdx)) {
+              renderedPages.add(pageIdx)
+              renderSingleThumbnail(pdf, pageIdx, card)
+            }
+            currentObserver?.unobserve(card)
+          }
+        }
+      },
+      {
+        root: scrollContainer,
+        rootMargin: '300px 0px' // Pre-render 300px before scrolling into view
+      }
+    )
+
+    // Build all skeleton cards instantly with DocumentFragment (1-2ms even for 100+ pages)
+    const fragment = document.createDocumentFragment()
     for (let i = 0; i < pageCount; i++) {
-      const page = await pdf.getPage(i + 1) // pdf.js uses 1-based indices
-
-      // Calculate scale to fit ~320px width for high DPI crispness
-      const desiredWidth = 320
-      const originalViewport = page.getViewport({ scale: 1 })
-      const scale = desiredWidth / originalViewport.width
-      const viewport = page.getViewport({ scale })
-
-      // Create canvas and render
-      const canvas = document.createElement('canvas')
-      canvas.width = Math.floor(viewport.width)
-      canvas.height = Math.floor(viewport.height)
-
-      const ctx = canvas.getContext('2d')!
-      await page.render({ canvasContext: ctx, viewport }).promise
-
-      // Create thumbnail card
       const card = document.createElement('div')
       card.className = 'thumbnail-card'
       card.dataset.pageIndex = String(i)
       card.dataset.originalIndex = String(i)
 
       const imageDiv = document.createElement('div')
-      imageDiv.className = 'thumbnail-image'
-      imageDiv.appendChild(canvas)
+      imageDiv.className = 'thumbnail-image skeleton-thumb'
 
       const label = document.createElement('div')
       label.className = 'thumbnail-label'
@@ -280,10 +322,14 @@ async function renderThumbnails(filePath: string, pageCount: number): Promise<vo
 
       card.appendChild(imageDiv)
       card.appendChild(label)
-      grid.appendChild(card)
+      fragment.appendChild(card)
+
+      currentObserver.observe(card)
     }
 
-    // Initialize SortableJS for drag-and-drop reordering
+    grid.appendChild(fragment)
+
+    // Initialize SortableJS immediately
     Sortable.create(grid, {
       animation: 150,
       delay: 150,
@@ -303,6 +349,51 @@ async function renderThumbnails(filePath: string, pageCount: number): Promise<vo
       </div>
     `
     document.getElementById('retry-btn')?.addEventListener('click', handleOpenFile)
+  }
+}
+
+async function renderSingleThumbnail(pdf: any, pageIdx: number, card: HTMLElement): Promise<void> {
+  try {
+    // Try high-speed native Android PdfRenderer (C++ PDFium) first
+    if (currentFilePath && isNativePdfSupported()) {
+      const nativeSrc = await renderNativeThumbnail(currentFilePath, pageIdx, 320)
+      if (nativeSrc) {
+        const imageDiv = card.querySelector('.thumbnail-image')
+        if (imageDiv) {
+          imageDiv.innerHTML = ''
+          imageDiv.classList.remove('skeleton-thumb')
+          const img = document.createElement('img')
+          img.src = nativeSrc
+          img.loading = 'lazy'
+          img.alt = `Pág. ${pageIdx + 1}`
+          imageDiv.appendChild(img)
+          return
+        }
+      }
+    }
+
+    // PDF.js fallback
+    const page = await pdf.getPage(pageIdx + 1)
+    const desiredWidth = 320
+    const originalViewport = page.getViewport({ scale: 1 })
+    const scale = desiredWidth / originalViewport.width
+    const viewport = page.getViewport({ scale })
+
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.floor(viewport.width)
+    canvas.height = Math.floor(viewport.height)
+
+    const ctx = canvas.getContext('2d')!
+    await page.render({ canvasContext: ctx, viewport }).promise
+
+    const imageDiv = card.querySelector('.thumbnail-image')
+    if (imageDiv) {
+      imageDiv.innerHTML = ''
+      imageDiv.classList.remove('skeleton-thumb')
+      imageDiv.appendChild(canvas)
+    }
+  } catch (renderErr) {
+    console.warn(`Lazy render error on page ${pageIdx + 1}:`, renderErr)
   }
 }
 
@@ -386,9 +477,21 @@ async function handleSave(): Promise<void> {
     if (!dialogResult) return // user cancelled
 
     if (dialogResult.action === 'save') {
-      const copied = await pdfService.copyFile(tempResult.outputPath, dialogResult.fileName)
+      const copied = await pdfService.copyFile(
+        tempResult.outputPath,
+        dialogResult.fileName,
+        dialogResult.customDirectory,
+        dialogResult.directoryHandle
+      )
       if (copied) {
         showNotification(`PDF guardado correctamente como ${dialogResult.fileName} (${tempResult.pageCount} páginas)`, 'success')
+        await pdfService.promptSuccessModal({
+          fileName: dialogResult.fileName,
+          fileSize,
+          pageCount: tempResult.pageCount,
+          outputPath: dialogResult.fileName,
+          destinationName: dialogResult.destinationName
+        })
       } else {
         showNotification('Error al guardar el archivo', 'error')
       }
